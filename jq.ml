@@ -15,11 +15,11 @@ let css t ps =
   let ps' = obj (Array.map ps ~f:(fun (p, x) -> p, inject x)) in
   meth_call t "css" [| inject ps' |]
 
-let on t event_name (f : Js.Dom_html.event -> unit) =
-  Js.Unsafe.(meth_call t "on" [| inject event_name; inject (Js.wrap_callback f) |]);
+let on t event_name (f : Dom_html.event Js.t -> unit) : unit =
+  Js.Unsafe.(meth_call t "on" [| inject event_name; inject (Js.wrap_callback f) |])
 
 let clicks t =
-  (* TODO: Consider adding a variant for uninitialized streams to prevent shit like this *)
+  (* TODO: Consider adding a variant for uninitialized streams to prevent stuff like this *)
   let s = Frp.Stream.create (0, 0) in
   on t "click" (fun e ->
     Frp.Stream.trigger s Js.Unsafe.(get e (Js.string "offsetX"), get e (Js.string "offsetY"))
