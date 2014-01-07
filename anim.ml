@@ -3,14 +3,6 @@ type shape
 open Core
 
 module Layout = struct
-  module Alignment = struct
-    type t = [ `Left | `Center | `Right ]
-  end
-
-  module Orientation = struct
-    type t = [ `Vertical | `Horizontal ]
-  end
-
   type t =
     | Columns of t list
     | Rows    of t list
@@ -60,7 +52,6 @@ module Layout = struct
 end
 
 module Slide = struct
-
   module Enter = struct
     type t = [`Right | `Below] * [`Layout of Layout.t | `Enters of t list ]
   end
@@ -116,36 +107,5 @@ module Slide = struct
     in
     (outer, entrances)
   ;;
-
-  let ex =
-    let open Layout in
-      (`Below, `Layout (Tex "hi"))
-    :: (`Right, `Layout (Tex "over here"))
-    :: (`Below, `Layout (Tex "Hi from below"))
-    :: []
-
-  let () = set_global "ex" (render ex)
-
-  (*
-  let rec layout = function
-    | []                          -> Layout.Columns []
-    | Enter (dir, `Layout x) :: xs -> Layout.combine dir (layout xs) x
-    | Wait _ :: xs                 -> layout xs
-  ;;
-
-  let hm =
-    def
-    >> enter_below (definition "A curve is ...")
-    >> enter_right (text "Hi!")
-    >> enter_below (text "Hi from below")
-
-  let ex =
-    def
-    >> enter_below (text "Here's an example")
-    >> enter_below (def >> enter_right "Check it out" >> enter_right curve_animation)
-  ;;
-
-  let ex 
-  *)
 end
 
