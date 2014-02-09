@@ -49,10 +49,15 @@ val path
   -> Point.t array Frp.Behavior.t (* TODO: Think about this *)
   -> t
 
+val polygon
+  : ?props:(Property.t Frp.Behavior.t array)
+  -> Point.t array Frp.Behavior.t (* TODO: Think about this *)
+  -> t
+
 val transform : t -> Transform.t Frp.Behavior.t -> t
 
 val pictures : t array -> t
 
 val dynamic : t Frp.Behavior.t -> t
 
-val render : t -> (Jq.t * Frp.Subscription.t)
+val render : t -> (Jq.Dom.t * Frp.Subscription.t)

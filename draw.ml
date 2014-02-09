@@ -49,6 +49,7 @@ end
 type t =
   | Circle    of Property.t Frp.Behavior.t array * float Frp.Behavior.t * Point.t Frp.Behavior.t
   | Transform of t * Transform.t Frp.Behavior.t
+  | Polygon   of Property.t Frp.Behavior.t array * Point.t array Frp.Behavior.t
   | Path      of Property.t Frp.Behavior.t array * Point.t array Frp.Behavior.t
 (*   | Bezier
   | Beside    of t list
@@ -61,6 +62,8 @@ let circle ?(props=[||]) r center = Circle (props, r, center)
 
 let rect ?(props=[||]) ~width ~height corner = Rect (props, corner, width, height) 
 
+let polygon ?(props=[||]) pts = Polygon (props, pts)
+
 let path ?(props=[||]) pts = Path (props, pts)
 
 let transform t trans = Transform (t, trans)
@@ -72,19 +75,23 @@ let dynamic tb = Dynamic tb
 let render_properties ps = String.concat_array ~sep:"," (Array.map ps ~f:Property.render)
 
 let sink_attrs elt ps =
-  Array.map ~f:(fun (name, value) -> Jq.sink_attr elt ~name ~value) ps
+  Array.map ~f:(fun (name, value) -> Jq.Dom.sink_attr elt ~name ~value) ps
   |> Frp.Subscription.concat
 
 let rec render =
   let x_beh = Frp.Behavior.map ~f:(fun {Point.x;_} -> string_of_float x) in
   let y_beh = Frp.Behavior.map ~f:(fun {Point.y; _} -> string_of_float y) in
+  let render_pt {Point.x; y} = string_of_float x ^ "," ^ string_of_float y in
+  let render_pts pts = String.concat_array ~sep:" " (Array.map pts ~f:render_pt) in
   let open Frp in function
   | Circle (ps, r, center) -> 
     let {Point. x; y} = Behavior.peek center in
-    let elt = let open Behavior in Jq.jq (
-      Printf.sprintf "<circle cx=\"%f\" cy=\"%f\" r=\"%f\" style=\"%s\" />"
-        x y (peek r) (render_properties (Array.map ~f:peek ps))
-    )
+    let elt = Jq.Dom.svg_node "circle" [|
+      "cx"   , string_of_float x;
+      "cy"   , string_of_float y;
+      "r"    , string_of_float (Frp.Behavior.peek r);
+      "style", render_properties (Array.map ~f:Frp.Behavior.peek ps)
+    |]
     in
     (* TODO: Properties *)
     (elt, sink_attrs elt [|
@@ -95,7 +102,7 @@ let rec render =
 
   | Transform (t, trans) ->
     let (elt, sub) = render t in
-    let trans_sub  = Jq.sink_attr elt
+    let trans_sub  = Jq.Dom.sink_attr elt
       ~name: "transform"
       ~value:(Frp.Behavior.map ~f:Transform.render trans)
     in
@@ -103,19 +110,34 @@ let rec render =
 
   | Path _ -> failwith "idk"
 
+  | Polygon (props, pts) ->
+      let open Frp.Behavior in
+      let elt = Jq.Dom.svg_node "polygon" [|
+        "style" , render_properties (Array.map ~f:peek props);
+        "points", String.concat_array ~sep:"," (Array.map ~f:render_pt (peek pts))
+      |]
+      in
+      let sub = Jq.Dom.sink_attr elt
+        ~name:"points"
+        ~value:(Frp.Behavior.map ~f:render_pts pts)
+      in
+      (elt, sub)
+
   | Pictures pics ->
     let elts = Array.map ~f:render pics in
-    let elt = Jq.jq "<g>" in
-    Array.iter ~f:(fun (e, _) -> Jq.append elt e) elts;
+    let elt = Jq.Dom.svg_node "g" [||] in 
+    Array.iter ~f:(fun (e, _) -> Jq.Dom.append elt e) elts;
     (elt, Frp.Subscription.concat (Array.map ~f:snd elts))
 
   | Rect (ps, corner, wb, hb) -> let open Frp.Behavior in
     let {Point. x; y} = peek corner in
-    let w, h = peek wb, peek hb in
-    let elt = Jq.jq (
-      Printf.sprintf "<rect x=\"%f\" y=\"%f\" width=\"%f\" height=\"%f\" style=\"%s\" />"
-        x y w h (render_properties (Array.map ~f:peek ps))
-    ) in
+    let elt = Jq.Dom.svg_node "rect" [|
+      "x"     , string_of_float x;
+      "y"     , string_of_float y;
+      "width" , string_of_float (peek wb);
+      "height", string_of_float (peek hb);
+      "style" , render_properties (Array.map ~f:peek ps)
+    |] in
     let subs = sink_attrs elt [|
       "x"     , x_beh corner;
       "y"     , y_beh corner;
@@ -126,14 +148,14 @@ let rec render =
     (elt, subs)
 
   | Dynamic tb ->
-    let container  = Jq.jq "<g>" in
+    let container  = Jq.Dom.svg_node "g" [||] in
     let (elt, sub) = render (Frp.Behavior.peek tb) in
     let last_sub   = ref sub in
     let dyn_sub    = Frp.Stream.iter (Frp.Behavior.changes tb) ~f:(fun t ->
       Frp.Subscription.cancel !last_sub;
-      Jq.empty container;
+      Jq.Dom.empty container;
       let (elt, sub) = render t in
-      Jq.append container elt;
+      Jq.Dom.append container elt;
       last_sub := sub;
     )
     in

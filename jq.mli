@@ -26,6 +26,22 @@ module Event : sig
   end
 end
 
+module Dom : sig
+  type t = Dom.element Js.t
+
+  val append : t -> t -> unit
+
+  val set_attr : t -> name:string -> value:string -> unit
+
+  val sink_attr : t -> name:string -> value:string Frp.Behavior.t -> Frp.Subscription.t
+
+  val empty : t -> unit
+
+  val svg_node : string -> (string * string) array -> t
+end
+
+val to_dom_node : t -> Dom.t option
+
 val create : string -> t
 
 val jq : string -> t

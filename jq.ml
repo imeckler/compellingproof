@@ -33,6 +33,42 @@ let sink_attr t ~name ~value =
     set_attr t ~name ~value
   )
 
+let to_dom_node t =
+  Js.Optdef.to_option (Js.Unsafe.(meth_call t "get" [| inject 0 |]))
+
+module Dom = struct
+  type t = Dom.element Js.t
+
+  let set_attr t ~name ~value =
+    t##setAttribute(Js.string name, Js.string value)
+
+  let sink_attr t ~name ~value =
+    let name = Js.string name in
+    Frp.Stream.iter (Frp.Behavior.changes value) ~f:(fun value ->
+      t##setAttribute(name, Js.string value)
+    )
+
+  let append t c = Dom.appendChild t c
+
+  let empty (t : t) =
+    while Js.Opt.test (t##firstChild) do
+      Js.Opt.iter (t##firstChild) (fun x -> ignore (t##removeChild(x)))
+    done
+
+  let svg_node tag attrs : Dom.element Js.t =
+    let str s = Js.Unsafe.inject (Js.string s) in
+    let elt = let open Js.Unsafe in
+      fun_call (variable "document.createElementNS") [| 
+        str "http://www.w3.org/2000/svg"; str tag
+      |]
+    in
+    Array.iter attrs ~f:(fun (k, v) ->
+      elt##setAttribute(Js.string k, Js.string v)
+    );
+    elt
+  ;;
+end
+
 module Event = struct
   module Mouse = struct
     module Button = struct
