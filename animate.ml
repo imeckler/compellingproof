@@ -10,6 +10,7 @@ let copy_behavior b =
   let b'  = Frp.Behavior.(return (peek b)) in
   (b', transfer b b')
 
+  (*
 module Easing_ = struct
 
   val mk : (Time.Span.t * float * t) list
@@ -20,6 +21,7 @@ module Easing_ = struct
      ]
      ~end:5.
 end
+*)
 
 module Easing = struct
   type free  = float
@@ -119,6 +121,47 @@ module Easing = struct
     | Anchor_left (pt, _)  -> pt
     | Glue_r (t1, t2)      -> left_endpoint t1
     | Glue_l (t1, t2)      -> left_endpoint t1
+end
+
+module Sequence = struct
+  type finished
+  type unfinished
+
+  type ('b, 'a) t =
+    | For     : Time.Span.t * ('a -> Time.Span.t -> 'a) -> (unfinished, 'a) t
+    | Forever : ('a -> Time.Span.t -> 'a) -> (finished, 'a) t
+
+  let forever x  = Forever x
+
+  let for_ dur f = For (dur, f)
+
+  let stay_for dur = For (dur, fun x0 _ -> x0)
+
+  let (&>) (For (dur, f1)) (Forever f2) =
+    let f = 
+      fun x0 ->
+        let f1' = f1 x0 in
+        let xf  = f1' dur in
+        let f2' = f2 xf in
+        fun t -> if t <= dur then f1' t else f2' t
+    in Forever f
+
+  let run ~init (Forever f) =
+    let elapsed =
+      Frp.scan ~init:(Time.Span.of_ms 0.) (Frp.Stream.elapsed 30.)
+        ~f:(fun _ t -> t)
+    in
+    let f' = f init in
+    Frp.Behavior.map ~f:f' elapsed
+
+    (*
+  let (&>) (f1, dur) f2 =
+    fun x0 t0 ->
+      let f1' = f1 x0 t0 in
+      let xf  = f1' Time.(t0 + dur) in
+      let f2' = f2 xf Time.(t0 + dur) in
+      fun t -> if Time.(t - t0) <= dur then f1' t else f2' t
+      *)
 end
 
   (*

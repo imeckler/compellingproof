@@ -5,9 +5,9 @@ OBJS=../corejs/time.cmo ../corejs/either.cmo ../corejs/option.cmo ../corejs/core
 
 all: jq widgets main
 
-test: jq.cmo draw.cmo
+test: jq.cmo draw.cmo animate.cmo
 	$(OCAMLC) -c test.ml
-	$(OCAMLC) -linkpkg $(OBJS) jq.cmo draw.cmo -o test.byte test.cmo
+	$(OCAMLC) -linkpkg $(OBJS) jq.cmo draw.cmo animate.cmo -o test.byte test.cmo
 	js_of_ocaml test.byte
 
 draw.cmi: draw.mli
