@@ -25,8 +25,24 @@ end
 
 module Property : sig
   (* TODO: Add more properties *)
-  type t =
-    | Fill of Color.t
+  module Linecap : sig
+    type t = [ `Butt | `Square | `Round ]
+  end
+
+  module Linejoin : sig
+    type t = [ `Miter | `Round | `Bevel ]
+  end
+
+  type t
+
+  val fill : Color.t -> t
+
+  val stroke
+    : ?cap:Linecap.t
+    -> ?join:Linejoin.t
+    -> Color.t
+    -> int
+    -> t
 end
 
 type t

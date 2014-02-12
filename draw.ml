@@ -39,11 +39,42 @@ end
 
 module Property = struct
   (* TODO: Add more properties *)
+  module Linecap = struct
+    type t = [ `Butt | `Square | `Round ]
+
+    let render = function
+      | `Butt   -> "butt"
+      | `Square -> "square"
+      | `Round  -> "round"
+  end
+
+  module Linejoin = struct
+    type t = [ `Miter | `Round | `Bevel ]
+
+    let render = function
+      | `Miter -> "miter"
+      | `Round -> "round"
+      | `Bevel -> "bevel"
+  end
+
   type t =
     | Fill of Color.t
+    | Stroke of Color.t * int * Linecap.t * Linejoin.t
+
+  let fill c = Fill c
+
+  let stroke ?(cap=`Butt) ?(join=`Miter) color width =
+    Stroke (color, width, cap, join)
 
   let render = function
     | Fill c -> "fill:" ^ Color.render c
+    | Stroke (c, w, cap, join) ->
+      String.concat_array ~sep:";" [|
+        "stroke:" ^ Color.render c;
+        "stroke-width:" ^ string_of_int w;
+        "stroke-linecap:" ^ Linecap.render cap;
+        "stroke-linejoin:" ^ Linejoin.render join
+      |]
 end
 
 type t =
@@ -72,7 +103,7 @@ let pictures ts = Pictures ts
 
 let dynamic tb = Dynamic tb
 
-let render_properties ps = String.concat_array ~sep:"," (Array.map ps ~f:Property.render)
+let render_properties ps = String.concat_array ~sep:";" (Array.map ps ~f:Property.render)
 
 let sink_attrs elt ps =
   Array.map ~f:(fun (name, value) -> Jq.Dom.sink_attr elt ~name ~value) ps

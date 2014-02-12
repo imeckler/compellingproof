@@ -27,20 +27,28 @@ module Sequence : sig
   type unfinished
 
   val for_
-    : Time.Span.t
-    -> ('a -> Time.Span.t -> 'a)
+    : float
+    -> ('a -> float -> 'a)
     -> (unfinished, 'a) t
 
-  val stay_for : Time.Span.t -> (unfinished, 'a) t
-
-  val forever : ('a -> Time.Span.t -> 'a) -> (finished, 'a) t
+  val forever : ('a -> float -> 'a) -> (finished, 'a) t
 
   val (&>)
     : (unfinished, 'a) t
-    -> (finished, 'a) t
-    -> (finished, 'a) t
+    -> ('b, 'a) t
+    -> ('b, 'a) t
+
+  val stay_for : float -> (unfinished, 'a) t
+
+  val stay_forever : (finished, 'a) t
 
   val run : init:'a -> (finished, 'a) t -> 'a Frp.Behavior.t
+
+  val quadratic
+    : float
+    -> init:float 
+    -> final:float
+    -> (unfinished, float) t
 
   (*
   val continue

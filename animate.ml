@@ -128,8 +128,9 @@ module Sequence = struct
   type unfinished
 
   type ('b, 'a) t =
-    | For     : Time.Span.t * ('a -> Time.Span.t -> 'a) -> (unfinished, 'a) t
-    | Forever : ('a -> Time.Span.t -> 'a) -> (finished, 'a) t
+    (* The float is time elapsed in ms *)
+    | For     : float * ('a -> float -> 'a) -> (unfinished, 'a) t
+    | Forever : ('a -> float -> 'a) -> (finished, 'a) t
 
   let forever x  = Forever x
 
@@ -137,22 +138,58 @@ module Sequence = struct
 
   let stay_for dur = For (dur, fun x0 _ -> x0)
 
-  let (&>) (For (dur, f1)) (Forever f2) =
-    let f = 
-      fun x0 ->
-        let f1' = f1 x0 in
-        let xf  = f1' dur in
-        let f2' = f2 xf in
-        fun t -> if t <= dur then f1' t else f2' t
-    in Forever f
+  let stay_forever = Forever (fun x0 _ -> x0)
+
+  let (&>) : type b. (unfinished, 'a) t -> (b, 'a) t -> (b, 'a) t =
+    fun (For (dur, f1)) t2 ->
+      let mk_f f2 =
+        fun x0 ->
+          let f1' = f1 x0 in
+          let xf  = f1' dur in
+          let f2' = f2 xf in
+          fun t -> if t <= dur then f1' t else f2' (t -. dur)
+      in
+      match t2 with
+      | Forever f2     -> Forever (mk_f f2)
+      | For (dur2, f2) -> For (dur +. dur2, mk_f f2)
+  ;;
 
   let run ~init (Forever f) =
     let elapsed =
-      Frp.scan ~init:(Time.Span.of_ms 0.) (Frp.Stream.elapsed 30.)
-        ~f:(fun _ t -> t)
+      Frp.scan ~init:0. (Frp.Stream.elapsed 30.)
+        ~f:(fun _ t ->
+          Time.Span.to_ms t
+        )
     in
     let f' = f init in
     Frp.Behavior.map ~f:f' elapsed
+
+  let quadratic_in dur final =
+    let f x0 =
+      let c = (final -. x0) /. (dur ** 2.) in
+      fun t -> x0 +. c *. (t ** 2.)
+    in
+    For (dur, f)
+
+  let quadratic_out dur final =
+    fun x0 ->
+      let b = (x0 -. final) /. dur in
+      let a = b /. dur in
+      fun t -> x0 +. a *. (t ** 2.) -. 2. *. b *. t
+
+  let quadratic_out dur final =
+    let f x0 =
+      let b = (x0 -. final) /. dur in
+      let a = b /. dur in
+      fun t -> x0 +. a *. (t ** 2.) -. 2. *. b *. t
+    in
+    For (dur, f)
+
+  let quadratic dur ~init ~final =
+    For (0., fun _ _ -> init)
+    &> quadratic_in (dur /. 2.) ((final -. init) /. 2.)
+    &> quadratic_out (dur /. 2.) final
+    &> For (0., fun _ _ -> final)
 
     (*
   let (&>) (f1, dur) f2 =
