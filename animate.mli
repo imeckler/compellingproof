@@ -1,25 +1,3 @@
-module Easing : sig
-  type ('a, 'b) t
-
-  type free
-  type fixed
-
-  val linear    : Time.Span.t -> (free, free) t
-  val quadratic : Time.Span.t -> (free, free) t
-  val cubic     : Time.Span.t -> (free, free) t
-  val quintic   : Time.Span.t -> (free, free) t
-
-  val anchor_left  : float -> (free, 'b) t -> (fixed, 'b) t
-  val anchor_right : float -> ('a, free) t -> ('a, fixed) t
-
-  val glue_r : ('a, fixed) t -> (free, 'b) t -> ('a, 'b) t
-  val glue_l : ('a, free) t -> (fixed, 'b) t -> ('a, 'b) t
-
-  val interpret : (fixed, fixed) t -> (Time.Span.t -> float)
-
-  val behavior : (fixed, fixed) t -> float -> float Frp.Behavior.t
-end
-
 module Sequence : sig
   type ('b, 'a) t
 
@@ -33,7 +11,7 @@ module Sequence : sig
 
   val forever : ('a -> float -> 'a) -> (finished, 'a) t
 
-  val (&>)
+  val (>>)
     : (unfinished, 'a) t
     -> ('b, 'a) t
     -> ('b, 'a) t
@@ -46,11 +24,18 @@ module Sequence : sig
 
   val quadratic
     : float
-    -> init:float 
+(*     -> init:float  *)
     -> final:float
     -> (unfinished, float) t
 
+  val jump_to : 'a -> (unfinished, 'a) t
+
   (*
+  val quadratic_cont
+    : float
+    -> final:float
+    -> (unfinished, float) t
+
   val continue
     : ('a -> Time.t -> Time.Span.t -> 'a)
     -> (unfinished, 'a) t

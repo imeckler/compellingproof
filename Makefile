@@ -8,7 +8,12 @@ all: jq widgets main
 test: jq.cmo draw.cmo animate.cmo
 	$(OCAMLC) -c test.ml
 	$(OCAMLC) -linkpkg $(OBJS) jq.cmo draw.cmo animate.cmo -o test.byte test.cmo
-	js_of_ocaml test.byte
+	js_of_ocaml -debuginfo -pretty test.byte
+
+main: jq.cmo draw.cmo animate.cmo
+	$(OCAMLC) -c main.ml
+	$(OCAMLC) -linkpkg $(OBJS) jq.cmo draw.cmo animate.cmo -o main.byte main.cmo
+	js_of_ocaml -debuginfo -pretty main.byte
 
 draw.cmi: draw.mli
 	$(OCAMLC) -c draw.mli 
@@ -40,10 +45,4 @@ widgets: jq
 clean:
 	rm *.cmo
 	rm *.cmi
-
-main: jq widgets
-	ocamlfind ocamlc -package js_of_ocaml -I ../corejs -I ../ocamlfrp -c jq.cmo main.ml
-	ocamlfind ocamlc -package js_of_ocaml -I ../corejs -I ../ocamlfrp \
-		-linkpkg -o main.byte main.cmo ../corejs/core.cma ../ocamlfrp/frp.cma # jq.cmo widgets.cmo 
-	js_of_ocaml -debuginfo -pretty main.byte
 
