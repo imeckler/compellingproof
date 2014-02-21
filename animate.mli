@@ -11,6 +11,8 @@ module Sequence : sig
 
   val forever : ('a -> float -> 'a) -> (finished, 'a) t
 
+  val cycle : (unfinished, 'a) t -> (finished, 'a) t
+
   val (>>)
     : (unfinished, 'a) t
     -> ('b, 'a) t

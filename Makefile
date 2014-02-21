@@ -3,7 +3,7 @@ OCAMLC=ocamlfind ocamlc -package js_of_ocaml -package js_of_ocaml.syntax -syntax
 
 OBJS=../corejs/time.cmo ../corejs/either.cmo ../corejs/option.cmo ../corejs/core_list.cmo ../corejs/core_array.cmo ../corejs/arrow.cmo ../corejs/inttbl.cmo ../corejs/core_string.cmo ../corejs/core_queue.cmo ../corejs/core.cmo ../ocamlfrp/frp.cmo
 
-all: jq widgets main
+all: jq widget main
 
 test: jq.cmo draw.cmo animate.cmo
 	$(OCAMLC) -c test.ml
@@ -39,8 +39,8 @@ draw: draw.cmo draw.cmi
 
 animate: animate.cmo animate.cmi
 
-widgets: jq
-	$(OCAMLC) jq.cmo -c widgets.mli widgets.ml
+widget: jq
+	$(OCAMLC) jq.cmo -c widget.mli widget.ml
 
 clean:
 	rm *.cmo
