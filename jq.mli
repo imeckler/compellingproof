@@ -27,13 +27,17 @@ module Event : sig
 end
 
 module Dom : sig
-  type t = Dom.element Js.t
+  type t = Dom_html.element Js.t
 
   val append : t -> t -> unit
 
   val set_attr : t -> name:string -> value:string -> unit
 
   val sink_attr : t -> name:string -> value:string Frp.Behavior.t -> Frp.Subscription.t
+
+  val set_html : t -> string -> unit
+
+  val sink_html : t -> string Frp.Behavior.t -> Frp.Subscription.t
 
   val empty : t -> unit
 

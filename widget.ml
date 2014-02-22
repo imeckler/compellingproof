@@ -13,11 +13,6 @@ module Control = struct
   let map t ~f = fun canvas container ->
     Frp.Behavior.map (t canvas container) ~f
 
-  (*
-  let fold t ~init ~f = fun canvas container ->
-    Frp.Stream.fold (t canvas container) ~init ~f
-    *)
-
   let ap t1 t2 = fun canvas container ->
     Frp.Behavior.ap (t1 canvas container) (t2 canvas container)
 

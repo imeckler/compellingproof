@@ -37,7 +37,7 @@ let to_dom_node t =
   Js.Optdef.to_option (Js.Unsafe.(meth_call t "get" [| inject 0 |]))
 
 module Dom = struct
-  type t = Dom.element Js.t
+  type t = Dom_html.element Js.t
 
   let set_attr t ~name ~value =
     t##setAttribute(Js.string name, Js.string value)
@@ -48,6 +48,12 @@ module Dom = struct
       t##setAttribute(name, Js.string value)
     )
 
+  let set_html (t : t) s = t##innerHTML <- Js.string s
+
+  let sink_html t sb =
+    set_html t (Frp.Behavior.peek sb);
+    Frp.Stream.iter (Frp.Behavior.changes sb) ~f:(set_html t)
+
   let append t c = Dom.appendChild t c
 
   let empty (t : t) =
@@ -55,7 +61,7 @@ module Dom = struct
       Js.Opt.iter (t##firstChild) (fun x -> ignore (t##removeChild(x)))
     done
 
-  let svg_node tag attrs : Dom.element Js.t =
+  let svg_node tag attrs : t =
     let str s = Js.Unsafe.inject (Js.string s) in
     let elt = let open Js.Unsafe in
       fun_call (variable "document.createElementNS") [| 
