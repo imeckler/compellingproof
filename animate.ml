@@ -43,7 +43,7 @@ module Sequence = struct
         let f2' = f2 (f1' dur1) in
         fun t -> if t <= dur1 then f1' t else f2' (t -. dur1)
     in
-    fun (For (dur1, f1) as t1) t2 ->
+    fun (For (dur1, f1)) t2 ->
     match t2 with
     | Forever f2      -> Forever (mk_f dur1 f1 f2)
     | For (dur2, f2)  -> For (dur1 +. dur2, mk_f dur1 f1 f2)

@@ -1,15 +1,15 @@
 module Point : sig
-  type t = { x : float ; y : float }
+  type 'a t = { x : 'a ; y : 'a }
 end
 
 module Angle : sig
   type t
 
   val rotate
-    : about:Point.t
-    -> Point.t
+    : about:float Point.t
+    -> float Point.t
     -> t
-    -> Point.t
+    -> float Point.t
 
   val pi : float
 
@@ -45,19 +45,21 @@ module Transform : sig
     | Matrix    of float * float * float * float * float * float
     | Translate of float * float
     | Scale     of float * float
-    | Rotate    of Angle.t * Point.t
+    | Rotate    of Angle.t * float Point.t
     | Skew_x    of float
     | Skew_y    of float
 end
 
 module Property : sig
   (* TODO: Add more properties *)
-  module Linecap : sig
-    type t = [ `Butt | `Square | `Round ]
-  end
+  module Stroke : sig
+    module Linecap : sig
+      type t = [ `Butt | `Square | `Round ]
+    end
 
-  module Linejoin : sig
-    type t = [ `Miter | `Round | `Bevel ]
+    module Linejoin : sig
+      type t = [ `Miter | `Round | `Bevel ]
+    end
   end
 
   type t
@@ -65,11 +67,21 @@ module Property : sig
   val fill : Color.t -> t
 
   val stroke
-    : ?cap:Linecap.t
-    -> ?join:Linejoin.t
+    : ?cap:Stroke.Linecap.t
+    -> ?join:Stroke.Linejoin.t
     -> Color.t
     -> int
     -> t
+end
+
+module Segment : sig
+  type t
+
+  val arc : Angle.t -> Angle.t -> [`long | `short] -> float -> t
+
+  val line_to : float Point.t -> t
+
+  val move_to : float Point.t -> t
 end
 
 type t
@@ -77,46 +89,36 @@ type t
 val circle
   : ?props:(Property.t Frp.Behavior.t array)
   -> float Frp.Behavior.t
-  -> Point.t Frp.Behavior.t
+  -> float Point.t Frp.Behavior.t
   -> t
 
 val rect
   : ?props:(Property.t Frp.Behavior.t array)
   -> width:float Frp.Behavior.t
   -> height:float Frp.Behavior.t
-  -> Point.t Frp.Behavior.t
+  -> float Point.t Frp.Behavior.t
   -> t
 
-module Segment : sig
-  type t
-
-  val arc : Angle.t -> Angle.t -> [`long | `short] -> float -> t
-
-  val line_to : Point.t -> t
-
-  val move_to : Point.t -> t
-end
-
+(* The value [(a, b)] of the mask behavior should satisfy 
+   [0. <= a <= b <= 1.]. It is used to specify which portion
+   of the path should be visible.
+*)
 val path
   : ?props:(Property.t Frp.Behavior.t array)
-  -> Point.t array Frp.Behavior.t (* TODO: Think about this *)
-  -> t
-
-val path
-  : ?props:(Property.t Frp.Behavior.t array)
-  -> anchor:(Point.t Frp.Behavior.t)
+  -> ?mask:(float * float) Frp.Behavior.t
+  -> anchor:(float Point.t Frp.Behavior.t)
   -> Segment.t array Frp.Behavior.t
   -> t
 
 val polygon
   : ?props:(Property.t Frp.Behavior.t array)
-  -> Point.t array Frp.Behavior.t (* TODO: Think about this *)
+  -> float Point.t array Frp.Behavior.t (* TODO: Think about this *)
   -> t
 
 val text
   : ?props:(Property.t Frp.Behavior.t array)
   -> string Frp.Behavior.t
-  -> Point.t Frp.Behavior.t
+  -> float Point.t Frp.Behavior.t
   -> t
 
 val transform : t -> Transform.t Frp.Behavior.t -> t

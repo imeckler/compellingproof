@@ -3,7 +3,7 @@ OCAMLC=ocamlfind ocamlc -package js_of_ocaml -package js_of_ocaml.syntax -syntax
 
 OBJS=../corejs/time.cmo ../corejs/either.cmo ../corejs/option.cmo ../corejs/core_list.cmo ../corejs/core_array.cmo ../corejs/arrow.cmo ../corejs/inttbl.cmo ../corejs/core_string.cmo ../corejs/core_queue.cmo ../corejs/core.cmo ../ocamlfrp/frp.cmo
 
-all: jq widget main
+all: jq draw widget
 
 test: jq.cmo draw.cmo animate.cmo
 	$(OCAMLC) -c test.ml

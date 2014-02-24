@@ -46,6 +46,8 @@ end
 
 val to_dom_node : t -> Dom.t option
 
+val wrap : Dom.t -> t
+
 val create : string -> t
 
 val jq : string -> t
@@ -66,6 +68,10 @@ val css : t -> (string * string) array -> unit
 
 val on : t -> string -> (Dom_html.event Js.t -> unit) -> unit
 
+val mouse_pos : (int * int) Frp.Stream.t
+
+val mouse_movements : (int * int) Frp.Stream.t
+
 val clicks : t -> Event.Mouse.Click.t Frp.Stream.t
 
-val drags : t -> Event.Mouse.Drag.t Frp.Stream.t
+val drags : t -> (int * int) Frp.Stream.t (* TODO: Fix to have button as well *)

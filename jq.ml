@@ -3,7 +3,10 @@ open Core
 type t
 
 let jq s =
-  Js.Unsafe.fun_call (Js.Unsafe.variable "jQuery") [| Js.Unsafe.inject (Js.string s) |]
+  Js.Unsafe.(fun_call (variable "jQuery") [| inject (Js.string s) |])
+
+let wrap elt =
+  Js.Unsafe.(fun_call (variable "jQuery") [| inject elt |])
 
 let create tag = jq ("<" ^ tag ^ ">")
 
@@ -25,10 +28,11 @@ let css t ps =
 let on t event_name (f : Dom_html.event Js.t -> unit) : unit =
   Js.Unsafe.(meth_call t "on" [| inject (Js.string event_name); inject (Js.wrap_callback f) |])
 
-let set_attr t ~name ~value =
+let set_attr t ~name ~value : unit =
   Js.Unsafe.(meth_call t "attr" [| inject (Js.string name); inject (Js.string value) |])
 
 let sink_attr t ~name ~value =
+  set_attr t ~name ~value:(Frp.Behavior.peek value);
   Frp.Stream.iter (Frp.Behavior.changes value) ~f:(fun value ->
     set_attr t ~name ~value
   )
@@ -43,6 +47,7 @@ module Dom = struct
     t##setAttribute(Js.string name, Js.string value)
 
   let sink_attr t ~name ~value =
+    set_attr t ~name ~value:(Frp.Behavior.peek value);
     let name = Js.string name in
     Frp.Stream.iter (Frp.Behavior.changes value) ~f:(fun value ->
       t##setAttribute(name, Js.string value)
@@ -108,6 +113,19 @@ module Event = struct
   end
 end
 
+let body = jq "body"
+
+let mouse_pos =
+  let s = Frp.Stream.create () in
+  on body "mousemove" (fun e ->
+    let pos = Js.Unsafe.(get e (Js.string "pageX"), get e (Js.string "pageY")) in
+    Frp.Stream.trigger s pos 
+  );
+  s
+
+let mouse_movements = 
+  Frp.Stream.delta mouse_pos ~f:(fun (x0, y0) (x1, y1) -> (x1 - x0, y1 - y0))
+
 let clicks t =
   (* TODO: Consider adding a variant for uninitialized streams to prevent stuff like this *)
   let s = Frp.Stream.create () in
@@ -121,21 +139,14 @@ let clicks t =
 
 let clicks_with button t = Frp.Stream.filter (clicks t) ~f:(fun b -> b = button)
 
-let drags t =
-  let s = Frp.Stream.create () in
-  let on_drag e d =
-    let open Js.Unsafe in
-    Frp.Stream.trigger s
-      { Event.Mouse.Drag.change = (get d "deltaX", get d "deltaY")
-      ; button                  = Event.Mouse.Button.from_code (get e "which")
-      }
-  in
-  Js.Unsafe.(
-    meth_call t "on" [| inject "drag"; inject (Js.wrap_callback on_drag) |]
-  );
-  s
-;;
+let dragged t =
+  let b = Frp.Behavior.return false in
+  on t    "mousedown" (fun _ -> Frp.Behavior.trigger b true);
+  on body "mouseup"   (fun _ -> Frp.Behavior.trigger b false);
+  b
 
-let drags_with button t = Frp.Stream.filter (drags t) ~f:(fun b -> b = button)
+let drags t = Frp.when_ (dragged t) mouse_movements
+
+(* let drags_with button t = Frp.Stream.filter (drags t) ~f:(fun b -> b = button) *)
 
 (* (Array.map ~f:(fun (p, x) -> (p, inject x)) ps) *)
