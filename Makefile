@@ -15,6 +15,11 @@ main: jq.cmo draw.cmo animate.cmo
 	$(OCAMLC) -linkpkg $(OBJS) jq.cmo draw.cmo animate.cmo -o main.byte main.cmo
 	js_of_ocaml -debuginfo -pretty main.byte
 
+example: jq.cmo draw.cmo animate.cmo
+	$(OCAMLC) -c example.ml
+	$(OCAMLC) -linkpkg $(OBJS) jq.cmo draw.cmo animate.cmo -o example.byte example.cmo
+	js_of_ocaml -debuginfo -pretty example.byte
+
 draw.cmi: draw.mli
 	$(OCAMLC) -c draw.mli 
 

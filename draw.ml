@@ -18,8 +18,8 @@ module Color = struct
 
   let white = { r = 255; g = 255; b = 255; alpha = 1.0 }
   let black = { r = 0; g = 0; b = 0; alpha = 1.0 }
-  let red = { r = 255; g = 0; b = 0; alpha = 1.0 }
-  let blue = { r = 0; g = 0; b = 255; alpha = 1.0 }
+  let red   = { r = 255; g = 0; b = 0; alpha = 1.0 }
+  let blue  = { r = 0; g = 0; b = 255; alpha = 1.0 }
 end
 
 module Angle = struct
@@ -41,7 +41,6 @@ module Angle = struct
     let x'' = (x' *. cos angle) -. (y' *. sin angle) in
     let y'' = (x' *. sin angle) +. (y' *. cos angle) in
     {Point. x = x'' +. a; y = y'' +. b}
-
 
   let cos x = cos (to_radians x)
 

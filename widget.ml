@@ -7,13 +7,13 @@ module Control = struct
     let c = Jq.create "div" in
     let b = Frp.Behavior.return 0.0 in
     let update e ui =
-      Frp.Behavior.trigger b (Js.to_float (Js.Unsafe.get ui (Js.string "value")))
+      Frp.Behavior.trigger b (Js.to_float (Js.Unsafe.get ui (Js.string "value")) /. 100.)
     in
     Jq.append container c;
-    set_global "c" c;
-    Js.Unsafe.(meth_call c "slider" [|
-      inject [| obj [|"slide", inject (Js.wrap_callback update) |] |]
-    |]) |> ignore;
+    let arg_obj =
+      Js.Unsafe.(obj [|"slide", inject (Js.wrap_callback update) |])
+    in
+    Js.Unsafe.(meth_call c "slider" [|inject arg_obj|]) |> ignore;
     b
 
   let clicks _ canvas = Jq.clicks canvas
@@ -35,11 +35,12 @@ module Control = struct
     fun container canvas ->
       Frp.Behavior.map (drag_point (cx + 100, cy) container canvas) 
         ~f:angle_of_pos
+
 end
 
 type 'a t = Jq.t * Jq.t * 'a
 
-let (+>) ((container, canvas, f) : ('a -> 'b) t) w =
+let (+>) (container, canvas, f) w =
   (container, canvas, f (w container canvas))
 
 let create ~width ~height container f = 
