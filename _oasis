@@ -1,0 +1,17 @@
+OASISFormat: 0.4
+Name:        Compelling_proof
+Version:     0.1
+Synopsis:    An animation library for js_of_ocaml
+Authors:     Izaak Meckler
+License:     WTFPL
+Plugins:     META (0.4)
+
+Library compelling_proof
+  Path:       src
+  BuildDepends: js_of_ocaml, js_of_ocaml.syntax, frp, corejs
+  BuildTools: ocamlbuild, camlp4o
+  CompiledObject: byte
+  Modules:        Draw, Jq, Animate, Widget
+  ByteOpt: -syntax camlp4o -package js_of_ocaml -package js_of_ocaml.syntax
+  XMETARequires: js_of_ocaml,js_of_ocaml.syntax,frp,corejs
+
