@@ -23,3 +23,5 @@ Executable example
   CompiledObject: byte
   BuildDepends: compelling_proof, corejs, frp, js_of_ocaml, js_of_ocaml.syntax
 
+PostBuildCommand: js_of_ocaml example.byte
+
