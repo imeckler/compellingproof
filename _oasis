@@ -5,13 +5,21 @@ Synopsis:    An animation library for js_of_ocaml
 Authors:     Izaak Meckler
 License:     WTFPL
 Plugins:     META (0.4)
+BuildTools:  ocamlbuild
 
 Library compelling_proof
-  Path:       src
-  BuildDepends: js_of_ocaml, js_of_ocaml.syntax, frp, corejs
-  BuildTools: ocamlbuild, camlp4o
+  Path:           src
+  BuildDepends:   js_of_ocaml, js_of_ocaml.syntax, frp, corejs
+  BuildTools:     camlp4o
   CompiledObject: byte
   Modules:        Draw, Jq, Animate, Widget
-  ByteOpt: -syntax camlp4o -package js_of_ocaml -package js_of_ocaml.syntax
-  XMETARequires: js_of_ocaml,js_of_ocaml.syntax,frp,corejs
+  ByteOpt:        -syntax camlp4o -package js_of_ocaml -package js_of_ocaml.syntax
+  XMETARequires:  js_of_ocaml,js_of_ocaml.syntax,frp,corejs
+
+Executable example
+  Path: src/examples
+  MainIs: example.ml
+  Install: false
+  CompiledObject: byte
+  BuildDepends: compelling_proof, corejs, frp, js_of_ocaml, js_of_ocaml.syntax
 
