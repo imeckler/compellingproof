@@ -121,6 +121,11 @@ val text
   -> float Point.t Frp.Behavior.t
   -> t
 
+(* Inject an already constructed node. This function does not check to
+   make sure the node is valid.
+*)
+val svg : Jq.Dom.t -> t
+
 val transform : t -> Transform.t Frp.Behavior.t -> t
 
 val pictures : t array -> t

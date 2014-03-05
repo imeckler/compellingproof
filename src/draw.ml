@@ -74,6 +74,7 @@ module Property = struct
   (* TODO: This whole system needs to be redone. Decide if all properties should
    * be together in one record.
    *)
+
   module Stroke = struct
     module Linecap = struct
       type t = [ `Butt | `Square | `Round ]
@@ -116,7 +117,6 @@ module Property = struct
   (* TODO: Fix the masking so that a mask can be applied to a dashed path *)
 
   let render = 
-    let opt_append = Option.value_map ~default:ident ~f:(fun x a -> Array.append a [|x|]) in
     function
     | Fill c -> "fill:" ^ Color.render c
     | Stroke {Stroke.cap; join; width; color} ->
@@ -159,25 +159,31 @@ type t =
   | Circle    of Property.t Frp.Behavior.t array 
                * float Frp.Behavior.t 
                * float Point.t Frp.Behavior.t
+
   | Transform of t * Transform.t Frp.Behavior.t
+
   | Polygon   of Property.t Frp.Behavior.t array 
                * float Point.t array Frp.Behavior.t
+
   | Path      of Property.t Frp.Behavior.t array
                * float Point.t Frp.Behavior.t
                * (float * float) Frp.Behavior.t option
                * Segment.t array Frp.Behavior.t
-(*   | Bezier
-  | Beside    of t list
-  | Stack     of t list *)
+
   | Text      of Property.t Frp.Behavior.t array 
                * float Point.t Frp.Behavior.t 
                * string Frp.Behavior.t
+
   | Pictures  of t array
+
   | Rect      of Property.t Frp.Behavior.t array 
                * float Point.t Frp.Behavior.t 
                * float Frp.Behavior.t
                * float Frp.Behavior.t
+
   | Dynamic   of t Frp.Behavior.t
+
+  | Svg       of Jq.Dom.t
 
 let circle ?(props=[||]) r center = Circle (props, r, center)
 
@@ -188,6 +194,8 @@ let polygon ?(props=[||]) pts = Polygon (props, pts)
 let path ?(props=[||]) ?mask ~anchor segs = Path (props, anchor, mask, segs)
 
 let text ?(props=[||]) str corner = Text (props, corner, str)
+
+let svg e = Svg e
 
 let transform t trans = Transform (t, trans)
 
@@ -206,11 +214,11 @@ let rec render =
   let y_beh = Frp.Behavior.map ~f:(fun {Point.y; _} -> string_of_float y) in
   let zip_props ps_b = Frp.Behavior.zip_many ps_b ~f:render_properties in
   let open Frp in function
+  
+  | Svg elt -> (elt, Frp.Subscription.empty)
 
   | Text (ps, corner, text) ->
-    let {Point. x; y} = Behavior.peek corner in
-    let elt = Jq.Dom.svg_node "text" [||]
-    in
+    let elt = Jq.Dom.svg_node "text" [||] in
     let sub = Jq.Dom.sink_html elt text in
     (elt, sink_attrs elt [|
       "x", x_beh corner;
@@ -219,18 +227,7 @@ let rec render =
     |] |> Frp.Subscription.merge sub)
 
   | Circle (ps, r, center) -> 
-    let {Point. x; y} = Behavior.peek center in
     let elt = Jq.Dom.svg_node "circle" [||] in
-(*
-    let elt = Jq.Dom.svg_node "circle" [|
-      "cx"   , string_of_float x;
-      "cy"   , string_of_float y;
-      "r"    , string_of_float (Frp.Behavior.peek r);
-      "style", render_properties (Array.map ~f:Frp.Behavior.peek ps)
-    |]
-    in
-*)
-    (* TODO: Properties *)
     (elt, sink_attrs elt [|
       "cx", x_beh center;
       "cy", y_beh center;
