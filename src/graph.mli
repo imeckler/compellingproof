@@ -45,8 +45,15 @@ val fold_nodes
   -> f:('accum -> ('a, 'b) Node.t -> 'a -> 'accum)
   -> 'accum
 
+val fold_arcs
+  : ('a, 'b) t
+  -> init:'accum
+  -> f:('accum -> ('a, 'b) Node.t -> ('a, 'b) Node.t -> 'b -> 'accum)
+  -> 'accum
+
 val iter_nodes : ('a, 'b) t -> f:(('a, 'b) Node.t -> 'a -> unit) -> unit
 
 val iter_arcs : ('a, 'b) t -> f:(('a, 'b) Node.t -> ('a, 'b) Node.t -> 'b -> unit) -> unit
 
 val length : ('a, 'b) t -> int
+

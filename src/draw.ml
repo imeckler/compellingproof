@@ -1,7 +1,9 @@
 open Core
 
 module Point = struct
-  type 'a t = { x : 'a ; y : 'a }
+(*   type 'a t = { x : 'a ; y : 'a } *)
+
+  type 'a t = 'a * 'a
 
   let render {x; y} = string_of_float x ^ "," ^ string_of_float y
 

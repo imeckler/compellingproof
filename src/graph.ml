@@ -110,12 +110,19 @@ let fold_nodes t ~init ~f =
     f acc key data.value
   )
 
+let fold_arcs t ~init ~f =
+  Inttbl.fold t.nodes ~init ~f:(fun acc ~key:v1 ~data:n1 ->
+    Inttbl.fold n1.succs ~init:acc ~f:(fun a ~key:v2 ~data ->
+      f a v1 v2 data
+    )
+  )
+
 let iter_nodes t ~f =
   Inttbl.iter t.nodes ~f:(fun ~key ~data -> f key data.value)
 
 let iter_arcs t ~f =
-  Inttbl.iter t.nodes ~f:(fun ~key:v1 ~data ->
-    Inttbl.iter data.succs ~f:(fun ~key:v2 ~data ->
+  Inttbl.iter t.nodes ~f:(fun ~key:v1 ~data:n1 ->
+    Inttbl.iter n1.succs ~f:(fun ~key:v2 ~data ->
       f v1 v2 data
     )
   )
