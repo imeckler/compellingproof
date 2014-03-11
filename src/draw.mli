@@ -1,5 +1,5 @@
 module Point : sig
-  type 'a t = { x : 'a ; y : 'a }
+  type 'a t = 'a * 'a
 end
 
 module Angle : sig

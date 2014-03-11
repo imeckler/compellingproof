@@ -5,7 +5,7 @@ module Point = struct
 
   type 'a t = 'a * 'a
 
-  let render {x; y} = string_of_float x ^ "," ^ string_of_float y
+  let render (x, y) = string_of_float x ^ "," ^ string_of_float y
 
   let render_many pts = String.concat_array ~sep:" " (Array.map pts ~f:render)
 end
@@ -37,12 +37,12 @@ module Angle = struct
 
   let of_radians = let c = 360. /. (2. *. pi) in fun x -> c *. x
 
-  let rotate ~about:{Point.x = a; y = b} {Point. x; y} angle =
+  let rotate ~about:(a, b) (x, y) angle =
     let angle = to_radians angle in
     let x', y' = x -. a, y -. b in
     let x'' = (x' *. cos angle) -. (y' *. sin angle) in
     let y'' = (x' *. sin angle) +. (y' *. cos angle) in
-    {Point. x = x'' +. a; y = y'' +. b}
+    (x'' +. a, y'' +. b)
 
   let cos x = cos (to_radians x)
 
@@ -65,11 +65,11 @@ module Transform = struct
   let render = function
     | Matrix (a, b, c, d, e, f) ->
         Printf.sprintf "matrix(%f,%f,%f,%f,%f,%f)" a b c d e f
-    | Translate (x, y)         -> Printf.sprintf "translate(%f %f)" x y
-    | Scale (x, y)             -> Printf.sprintf "scale(%f %f)" x y
-    | Rotate (a, {Point.x; y}) -> Printf.sprintf "rotate(%f %f %f)" a x y
-    | Skew_x s                 -> Printf.sprintf "skewX(%f)" s
-    | Skew_y s                 -> Printf.sprintf "skewY(%f)" s
+    | Translate (x, y)   -> Printf.sprintf "translate(%f %f)" x y
+    | Scale (x, y)       -> Printf.sprintf "scale(%f %f)" x y
+    | Rotate (a, (x, y)) -> Printf.sprintf "rotate(%f %f %f)" a x y
+    | Skew_x s           -> Printf.sprintf "skewX(%f)" s
+    | Skew_y s           -> Printf.sprintf "skewY(%f)" s
 end
 
 module Property = struct
@@ -146,12 +146,12 @@ module Segment = struct
   let arc a1 a2 l r = Arc (a1, a2, l, r)
 
   let render = function
-    | Line_to {Point. x; y} -> Printf.sprintf "L%f %f" x y
-    | Move_to {Point. x; y} -> Printf.sprintf "M%f %f" x y
+    | Line_to (x, y) -> Printf.sprintf "L%f %f" x y
+    | Move_to (x, y) -> Printf.sprintf "M%f %f" x y
     | Arc (a1, a2, l, r) -> let open Point in
         let flag = match l with `long -> 1 | `short -> 0 in
-        let ctr = {x = -. Angle.cos a1 *. r; y = Angle.sin a1 *. r} in
-        let {x; y} = Angle.(rotate ~about:ctr {x= 0.; y = 0.} (a2 -. a1)) in
+        let ctr = (-. Angle.cos a1 *. r, Angle.sin a1 *. r) in
+        let (x, y) = Angle.(rotate ~about:ctr (0., 0.) (a2 -. a1)) in
         Printf.sprintf "a%f,%f 0 %d,1 %f,%f" r r flag x y
 
   let render_many ts = String.concat_array ~sep:" " (Array.map ~f:render ts)
@@ -212,8 +212,8 @@ let sink_attrs elt ps =
   |> Frp.Subscription.concat
 
 let rec render =
-  let x_beh = Frp.Behavior.map ~f:(fun {Point.x;_} -> string_of_float x) in
-  let y_beh = Frp.Behavior.map ~f:(fun {Point.y; _} -> string_of_float y) in
+  let x_beh = Frp.Behavior.map ~f:(fun (x, _) -> string_of_float x) in
+  let y_beh = Frp.Behavior.map ~f:(fun (_, y) -> string_of_float y) in
   let zip_props ps_b = Frp.Behavior.zip_many ps_b ~f:render_properties in
   let open Frp in function
   
@@ -249,7 +249,7 @@ let rec render =
       let elt = Jq.Dom.svg_node "path" [||] in
       let sub = Jq.Dom.sink_attr elt
         ~name:"d"
-        ~value:(Frp.Behavior.zip_with anchor segs ~f:(fun {Point.x; y} sgs -> 
+        ~value:(Frp.Behavior.zip_with anchor segs ~f:(fun (x, y) sgs -> 
           Printf.sprintf "M%f,%f %s" x y (Segment.render_many sgs)
         ))
       in
@@ -289,8 +289,9 @@ let rec render =
     Array.iter ~f:(fun (e, _) -> Jq.Dom.append elt e) elts;
     (elt, Frp.Subscription.concat (Array.map ~f:snd elts))
 
+    (* TODO: Add properties. *)
   | Rect (ps, corner, wb, hb) -> let open Frp.Behavior in
-    let {Point. x; y} = peek corner in
+    let (x, y) = peek corner in
     let elt = Jq.Dom.svg_node "rect" [|
       "x"     , string_of_float x;
       "y"     , string_of_float y;

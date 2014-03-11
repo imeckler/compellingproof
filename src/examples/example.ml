@@ -1,12 +1,12 @@
 let square w h =
-  let open Draw in let open Point in
+  let open Draw in
   let side_len = min w h /. 2. in
-  let ctr      = {x = w /. 2.; y = h /. 2. } in
+  let ctr      = (w /. 2., h /. 2. ) in
   let square   = let open Frp.Behavior in let open Property in
     rect 
       ~props:[|return (fill Color.black)|]
       ~width:(return side_len) ~height:(return side_len)
-      (return {x = (w -. side_len) /. 2.; y = (h -. side_len) /. 2.})
+      (return ((w -. side_len) /. 2., (h -. side_len) /. 2.))
   in
   let angle = let open Animate.Sequence in
     cycle (quadratic 2000. ~final:360.)
