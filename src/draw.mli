@@ -110,6 +110,12 @@ val path
   -> Segment.t array Frp.Behavior.t
   -> t
 
+val path_string
+  : ?props:(Property.t Frp.Behavior.t array)
+  -> ?mask:(float * float) Frp.Behavior.t
+  -> string Frp.Behavior.t
+  -> t
+
 val polygon
   : ?props:(Property.t Frp.Behavior.t array)
   -> float Point.t array Frp.Behavior.t (* TODO: Think about this *)

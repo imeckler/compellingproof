@@ -3,6 +3,11 @@ open Core
 module Control = struct
   type 'a t = Jq.t -> Jq.t -> 'a
 
+  let play_pause button rate (* rate in percentage per seconds *) =
+    let playing = Frp.Stream.fold (Jq.clicks button) ~init:false ~f:(fun p _ -> not p) in
+    let incrs   = Frp.Stream.map ~f:(fun _ -> ()) (Frp.Stream.ticks 30.) in
+    ()
+
   let slider label container _ =
     let c = Jq.create "div" in
     let b = Frp.Behavior.return 0.0 in
@@ -11,7 +16,7 @@ module Control = struct
     in
     Jq.append container c;
     let arg_obj =
-      Js.Unsafe.(obj [|"slide", inject (Js.wrap_callback update) |])
+      Js.Unsafe.(obj [|"slide", inject (Js.wrap_callback update); "step", inject (Js.float 0.01)|])
     in
     Js.Unsafe.(meth_call c "slider" [|inject arg_obj|]) |> ignore;
     b

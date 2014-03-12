@@ -172,6 +172,11 @@ type t =
                * (float * float) Frp.Behavior.t option
                * Segment.t array Frp.Behavior.t
 
+  (* TODO: This is a hack to use until I figure out a better interface *)
+  | Path_str  of Property.t Frp.Behavior.t array
+               * (float * float) Frp.Behavior.t option
+               * string Frp.Behavior.t
+
   | Text      of Property.t Frp.Behavior.t array 
                * float Point.t Frp.Behavior.t 
                * string Frp.Behavior.t
@@ -195,6 +200,8 @@ let polygon ?(props=[||]) pts = Polygon (props, pts)
 
 let path ?(props=[||]) ?mask ~anchor segs = Path (props, anchor, mask, segs)
 
+let path_string ?(props=[||]) ?mask strb = Path_str (props, mask, strb)
+
 let text ?(props=[||]) str corner = Text (props, corner, str)
 
 let svg e = Svg e
@@ -215,6 +222,26 @@ let rec render =
   let x_beh = Frp.Behavior.map ~f:(fun (x, _) -> string_of_float x) in
   let y_beh = Frp.Behavior.map ~f:(fun (_, y) -> string_of_float y) in
   let zip_props ps_b = Frp.Behavior.zip_many ps_b ~f:render_properties in
+
+  let path_mask elt segs mask props =
+    let get_length () : float = Js.Unsafe.meth_call elt "getTotalLength" [||] in
+    let path_length =
+      Frp.Stream.map (Frp.Behavior.changes segs) ~f:(fun _ -> get_length ())
+      |> Frp.scan ~init:(get_length ()) ~f:(fun _ x -> x)
+    in
+    let props' = match mask with
+      | None -> props
+      | Some mask -> begin
+        let dash_array = Frp.Behavior.zip_with path_length mask ~f:(fun l (a, b) ->
+          Property.Dash_array [|0. ; l *. a; l *. (b -. a); l |]
+        )
+        in
+        Array.append props [|dash_array|]
+      end
+    in
+    Jq.Dom.sink_attr elt ~name:"style" ~value:(zip_props props')
+  in
+
   let open Frp in function
   
   | Svg elt -> (elt, Frp.Subscription.empty)
@@ -245,30 +272,20 @@ let rec render =
     in
     (elt, Frp.Subscription.merge trans_sub sub)
 
+  | Path_str (props, mask, path_strb) ->
+    let elt = Jq.Dom.svg_node "path" [||] in
+    let sub = Jq.Dom.sink_attr elt ~name:"d" ~value:path_strb in
+    (elt, Frp.Subscription.merge sub (path_mask elt path_strb mask props))
+
   | Path (props, anchor, mask, segs) ->
-      let elt = Jq.Dom.svg_node "path" [||] in
-      let sub = Jq.Dom.sink_attr elt
-        ~name:"d"
-        ~value:(Frp.Behavior.zip_with anchor segs ~f:(fun (x, y) sgs -> 
-          Printf.sprintf "M%f,%f %s" x y (Segment.render_many sgs)
-        ))
-      in
-      let get_length () : float = Js.Unsafe.meth_call elt "getTotalLength" [||] in
-      let path_length =
-        Frp.Stream.map (Frp.Behavior.changes segs) ~f:(fun _ -> get_length ())
-        |> Frp.scan ~init:(get_length ()) ~f:(fun _ x -> x)
-      in
-      let props' = match mask with
-        | None -> props
-        | Some mask -> begin
-          let dash_array = Frp.Behavior.zip_with path_length mask ~f:(fun l (a, b) ->
-            Property.Dash_array [|0. ; l *. a; l *. (b -. a); l |]
-          )
-          in
-          Array.append props [|dash_array|]
-        end
-      in
-      (elt, Frp.Subscription.merge sub (Jq.Dom.sink_attr elt ~name:"style" ~value:(zip_props props')))
+    let elt = Jq.Dom.svg_node "path" [||] in
+    let sub = Jq.Dom.sink_attr elt
+      ~name:"d"
+      ~value:(Frp.Behavior.zip_with anchor segs ~f:(fun (x, y) sgs -> 
+        Printf.sprintf "M%f,%f %s" x y (Segment.render_many sgs)
+      ))
+    in
+    (elt, Frp.Subscription.merge sub (path_mask elt segs mask props))
 
   | Polygon (props, pts) ->
       let open Frp.Behavior in
