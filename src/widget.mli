@@ -7,7 +7,11 @@ module Control : sig
 
   val drag_point : (int * int) -> (int * int) Frp.Behavior.t t
 
-  val slider : string -> float Frp.Behavior.t t
+  val continuous_slider : string -> float Frp.Behavior.t t
+
+  val step_slider : int -> int Frp.Behavior.t t
+
+  val incr_decr : ?bot:int -> ?top:int -> unit -> int Frp.Behavior.t t
 end
 
 type 'a t

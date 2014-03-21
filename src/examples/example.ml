@@ -17,7 +17,7 @@ let square w h =
 let () =
   let svg = Jq.Dom.svg_node "svg" [| "width", "400"; "height", "600" |] in
   Jq.Dom.append svg (fst (Draw.render (square 400. 600.)));
-  match Jq.to_dom_node (Jq.jq "#content") with
+  match Option.bind (Jq.jq "#content") Jq.to_dom_node with
     | Some t -> Jq.Dom.append t svg
     | None   -> ()
 

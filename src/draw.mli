@@ -32,12 +32,13 @@ end
 module Color : sig
   type t = { r : int; g : int; b : int; alpha : float }
 
-  val of_rgb : ?alpha:float -> r:int -> g:int -> b:int -> t
+  val of_rgb : ?alpha:float -> r:int -> g:int -> b:int -> unit -> t
 
   val white : t
   val black : t
   val red   : t
   val blue  : t
+  val none  : t
 end
 
 module Transform : sig
@@ -65,6 +66,8 @@ module Property : sig
   type t
 
   val fill : Color.t -> t
+
+  val any : name:string -> value:string -> t
 
   val stroke
     : ?cap:Stroke.Linecap.t

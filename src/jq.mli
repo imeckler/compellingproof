@@ -50,7 +50,7 @@ val wrap : Dom.t -> t
 
 val create : string -> t
 
-val jq : string -> t
+val jq : string -> t option
 
 val append : t -> t -> unit
 

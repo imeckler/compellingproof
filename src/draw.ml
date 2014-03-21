@@ -13,7 +13,7 @@ end
 module Color = struct
   type t = { r : int; g : int; b : int; alpha : float }
 
-  let of_rgb ?(alpha=0.0) ~r ~g ~b = {r; g; b; alpha}
+  let of_rgb ?(alpha=1.0) ~r ~g ~b () = {r; g; b; alpha}
 
   let render {r; g; b; alpha} =
     Printf.sprintf "rgba(%d,%d,%d,%f)" r g b alpha
@@ -22,6 +22,7 @@ module Color = struct
   let black = { r = 0; g = 0; b = 0; alpha = 1.0 }
   let red   = { r = 255; g = 0; b = 0; alpha = 1.0 }
   let blue  = { r = 0; g = 0; b = 255; alpha = 1.0 }
+  let none  = { blue with alpha = 0. }
 end
 
 module Angle = struct
@@ -110,8 +111,12 @@ module Property = struct
     | Fill   of Color.t
     | Stroke of Stroke.t
     | Dash_array of float array
+    (* TODO: This is a hack for before the thing gets rewritten *)
+    | Any of string * string
 
   let fill c = Fill c
+
+  let any ~name ~value = Any (name, value)
 
   let stroke ?(cap=`Butt) ?(join=`Miter) color width =
     Stroke {Stroke.cap; join; color; width}
@@ -131,6 +136,7 @@ module Property = struct
     | Dash_array xs ->
       "stroke-dasharray:" 
       ^ String.concat_array ~sep:" " (Array.map ~f:string_of_float xs)
+    | Any (name, value) -> Printf.sprintf "%s:%s" name value
 end
 
 module Segment = struct
@@ -146,8 +152,8 @@ module Segment = struct
   let arc a1 a2 l r = Arc (a1, a2, l, r)
 
   let render = function
-    | Line_to (x, y) -> Printf.sprintf "L%f %f" x y
-    | Move_to (x, y) -> Printf.sprintf "M%f %f" x y
+    | Line_to (x, y) -> Printf.sprintf "l%f %f" x y
+    | Move_to (x, y) -> Printf.sprintf "m%f %f" x y
     | Arc (a1, a2, l, r) -> let open Point in
         let flag = match l with `long -> 1 | `short -> 0 in
         let ctr = (-. Angle.cos a1 *. r, Angle.sin a1 *. r) in
@@ -328,6 +334,7 @@ let rec render =
   | Dynamic tb ->
     let container  = Jq.Dom.svg_node "g" [||] in
     let (elt, sub) = render (Frp.Behavior.peek tb) in
+    Jq.Dom.append container elt;
     let last_sub   = ref sub in
     let dyn_sub    = Frp.Stream.iter (Frp.Behavior.changes tb) ~f:(fun t ->
       Frp.Subscription.cancel !last_sub;

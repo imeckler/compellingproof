@@ -2,13 +2,18 @@ open Core
 
 type t
 
+let unsafe_jq s = Js.Unsafe.(fun_call (variable "jQuery") [| inject (Js.string s) |])
+
 let jq s =
-  Js.Unsafe.(fun_call (variable "jQuery") [| inject (Js.string s) |])
+  let t = unsafe_jq s in
+  match (Obj.magic t)##length with
+  | 0 -> None
+  | _ -> Some t
 
 let wrap elt =
   Js.Unsafe.(fun_call (variable "jQuery") [| inject elt |])
 
-let create tag = jq ("<" ^ tag ^ ">")
+let create tag = unsafe_jq ("<" ^ tag ^ ">")
 
 let append parent child =
   Js.Unsafe.meth_call parent "append" [| Js.Unsafe.inject child |]
@@ -113,7 +118,7 @@ module Event = struct
   end
 end
 
-let body = jq "body"
+let body = unsafe_jq "body"
 
 let mouse_pos =
   let s = Frp.Stream.create () in
