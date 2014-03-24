@@ -27,6 +27,8 @@ module Angle : sig
   val of_degrees : float -> t
 
   val of_radians : float -> t
+
+  val about : center:float Point.t -> float Point.t -> t
 end
 
 module Color : sig
@@ -84,51 +86,66 @@ module Segment : sig
 
   val line_to : float Point.t -> t
 
+  val arc_to : float Point.t -> [`long | `short] -> [`pos | `neg] -> float -> t
+
   val move_to : float Point.t -> t
+end
+
+module Name : sig
+  type t
+
+  val create : unit -> t
+
+  val clicks : t -> Jq.Event.Mouse.Click.t Frp.Stream.t
+
+  val drags  : t -> (int * int) Frp.Stream.t
 end
 
 type t
 
+type 'k with_shape_args
+  = ?name:Name.t
+  -> ?props:(Property.t Frp.Behavior.t array)
+  -> 'k
+
 val circle
-  : ?props:(Property.t Frp.Behavior.t array)
-  -> float Frp.Behavior.t
-  -> float Point.t Frp.Behavior.t
-  -> t
+  : (float Frp.Behavior.t -> float Point.t Frp.Behavior.t -> t)
+    with_shape_args
 
 val rect
-  : ?props:(Property.t Frp.Behavior.t array)
-  -> width:float Frp.Behavior.t
+  :(width:float Frp.Behavior.t
   -> height:float Frp.Behavior.t
   -> float Point.t Frp.Behavior.t
-  -> t
+  -> t)
+  with_shape_args
 
 (* The value [(a, b)] of the mask behavior should satisfy 
    [0. <= a <= b <= 1.]. It is used to specify which portion
    of the path should be visible.
 *)
 val path
-  : ?props:(Property.t Frp.Behavior.t array)
-  -> ?mask:(float * float) Frp.Behavior.t
+  : (?mask:(float * float) Frp.Behavior.t
   -> anchor:(float Point.t Frp.Behavior.t)
   -> Segment.t array Frp.Behavior.t
-  -> t
+  -> t)
+  with_shape_args
 
 val path_string
-  : ?props:(Property.t Frp.Behavior.t array)
-  -> ?mask:(float * float) Frp.Behavior.t
+  :(?mask:(float * float) Frp.Behavior.t
   -> string Frp.Behavior.t
-  -> t
+  -> t)
+  with_shape_args
 
 val polygon
-  : ?props:(Property.t Frp.Behavior.t array)
-  -> float Point.t array Frp.Behavior.t (* TODO: Think about this *)
-  -> t
+  :(float Point.t array Frp.Behavior.t (* TODO: Think about this *)
+  -> t)
+  with_shape_args
 
 val text
-  : ?props:(Property.t Frp.Behavior.t array)
-  -> string Frp.Behavior.t
+  :(string Frp.Behavior.t
   -> float Point.t Frp.Behavior.t
-  -> t
+  -> t)
+  with_shape_args
 
 (* Inject an already constructed node. This function does not check to
    make sure the node is valid.

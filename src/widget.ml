@@ -104,10 +104,11 @@ module Control = struct
     Frp.scan (Jq.drags canvas) ~init
       ~f:(fun (x, y) (dx, dy) -> (x + dx,  y + dy))
 
+  let pi = acos (-1.)
+
   let drag_angle (cx, cy) =
-    let pi = acos (-1.) in
+    let cxf, cyf = float_of_int cx, float_of_int cy in
     let angle_of_pos =
-      let cxf, cyf = float_of_int cx, float_of_int cy in
       fun (x, y) ->
         let a = atan ((cyf -. float_of_int y) /. (cxf -. float_of_int x)) in
         if x < cx then pi -. a else a
