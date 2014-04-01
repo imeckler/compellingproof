@@ -212,6 +212,7 @@ type shape_config =
   { name : Name.t option
   }
 
+(* TODO: Make a separate constructor for Named *)
 type t =
   | Circle    of shape_config
                * Property.t Frp.Behavior.t array 

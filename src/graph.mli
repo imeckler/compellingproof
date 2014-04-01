@@ -57,3 +57,30 @@ val iter_arcs : ('a, 'b) t -> f:(('a, 'b) Node.t -> ('a, 'b) Node.t -> 'b -> uni
 
 val length : ('a, 'b) t -> int
 
+(* Experimental interface *)
+
+type ('a, 'b) gph = ('a, 'b) t
+
+module Builder : sig
+  type ('k, 'a, 'b) t
+
+  (* TODO: Think about if there's any downside to keeping Builder.node
+   * different from Node.t *)
+
+  type ('a, 'b) node
+
+  val new_node : 'a -> (('a, 'b) node, 'a, 'b) t
+
+  val add_arc : ('a, 'b) node -> ('a, 'b) node -> 'b -> (unit, 'a, 'b) t
+
+  val remove_arc : ('a, 'b) node -> ('a, 'b) node -> (unit, 'a, 'b) t
+
+  include Monad.S3 with type ('k, 'a, 'b) t := ('k, 'a, 'b) t
+
+  val replicate : int -> ('k, 'a, 'b) t -> ('k list, 'a, 'b) t
+
+  val replicate_ignore : int -> ('k, 'a, 'b) t -> (unit, 'a, 'b) t
+
+  val run : ('a, 'b) gph -> ('k, 'a, 'b) t -> ('a, 'b) gph
+end
+

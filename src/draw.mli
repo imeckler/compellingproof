@@ -160,3 +160,5 @@ val dynamic : t Frp.Behavior.t -> t
 
 val render : t -> (Jq.Dom.t * Frp.Subscription.t)
 
+(* val render_canvas : t -> Jq.Dom.t -> unit *)
+

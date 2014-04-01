@@ -11,7 +11,7 @@ end
 
 type ('a, 'b) t =
   { nodes        : ('a, 'b) node Inttbl.t
-  ; available_id : int
+  ; mutable available_id : int 
   }
 
 (* For internal purposes *)
@@ -134,27 +134,84 @@ module Change = struct
     | Remove_node of ('a, 'b) Node.t
 end
 
+let add_arc u v e nodes =
+  match Inttbl.find nodes u, Inttbl.find nodes v with
+  | Some un, Some _ -> Inttbl.add ~key:v ~data:e un.succs
+  | _, _            -> failwith "Graph.add_arc: Nodes not in graph"
+
+let remove_arc u v nodes =
+  match Inttbl.find nodes u, Inttbl.find nodes v with
+  | Some un, Some _ -> Inttbl.remove un.succs v
+  | _, _            -> failwith "Graph.remove_arc: Nodes not in graph"
+
+let remove_node u nodes =
+  match Inttbl.find nodes u with
+  | Some un -> begin
+      Inttbl.remove nodes u;
+      Inttbl.iter nodes ~f:(fun ~key ~data -> Inttbl.remove data.succs u)
+    end
+  | _       -> failwith "Graph.remove_node: Node not in graph"
+
 let change cs t =
   let nodes' = copy_nodes t.nodes in
   Array.iter cs ~f:(let open Change in function
-    | Add_arc (u, v, e) ->
-      begin match Inttbl.find nodes' u, Inttbl.find nodes' v with
-      | Some un, Some _ -> Inttbl.add ~key:v ~data:e un.succs
-      | _, _            -> failwith "Graph.Change.Add_arc: Nodes not in graph"
-      end
-    | Remove_arc (u, v) ->
-      begin match Inttbl.find nodes' u, Inttbl.find nodes' v with
-      | Some un, Some _ -> Inttbl.remove un.succs v
-      | _, _            -> failwith "Graph.Change.Remove_arc: Nodes not in graph"
-      end
-    | Remove_node u ->
-      begin match Inttbl.find nodes' u with
-      | Some un -> begin
-          Inttbl.remove nodes' u;
-          Inttbl.iter nodes' ~f:(fun ~key ~data -> Inttbl.remove data.succs u)
-        end
-      | _       -> failwith "Graph.Change.Remove_node : Node not in graph"
-      end
+    | Add_arc (u, v, e) -> add_arc u v e nodes'
+    | Remove_arc (u, v) -> remove_arc u v nodes'
+    | Remove_node u -> remove_node u nodes'
   );
   { nodes = nodes'; available_id = t.available_id }
+
+
+type ('a, 'b) gph = ('a, 'b) t
+
+module Builder = struct
+  type ('a, 'b) node = ('a, 'b) Node.t
+
+  module F = struct
+    type ('k, 'a, 'b) t =
+      | Add_arc    of ('a, 'b) Node.t * ('a, 'b) Node.t * 'b * 'k
+      | Remove_arc of ('a, 'b) Node.t * ('a, 'b) Node.t * 'k
+      | New_node   of 'a * (('a, 'b) Node.t -> 'k)
+
+    let map t ~f = match t with
+      | Add_arc (u, v, e, k) -> Add_arc (u, v, e, f k)
+      | Remove_arc (u, v, k) -> Remove_arc (u, v, f k)
+      | New_node (x, cont) -> New_node (x, (fun v -> f (cont v)))
+  end
+
+  include Monad.Free3(F)
+
+  let rec replicate n t =
+    if      n < 0 then failwith "Graph.Builder.replicate: n < 0"
+    else if n = 0 then return []
+    else t >>= fun x -> replicate (n - 1) t >>= fun xs -> return (x :: xs)
+
+  let rec replicate_ignore n t =
+    if      n < 0 then failwith "Graph.Builder.replicate_ignore: n < 0"
+    else if n = 0 then return ()
+    else t >>= fun _ -> replicate_ignore (n - 1) t
+
+  let add_node_mutate x t =
+    let new_node = {value = x; succs = Inttbl.create () } in
+    let key = t.available_id in
+    Inttbl.add t.nodes ~key ~data:new_node;
+    t.available_id <- t.available_id + 1;
+    key
+
+  let run g =
+    let g' = copy g in
+    let rec go = let open F in function
+      | Pure x                      -> ()
+      | Free (Add_arc (u, v, e, k)) -> add_arc u v e g'.nodes; go k
+      | Free (Remove_arc (u, v, k)) -> remove_arc u v g'.nodes; go k
+      | Free (New_node (x, cont))   -> go (cont (add_node_mutate x g'))
+    in
+    fun fx -> go fx; g'
+
+  let new_node x = Free (F.New_node (x, fun v -> Pure v))
+
+  let add_arc u v e = Free (F.Add_arc (u, v, e, Pure ()))
+
+  let remove_arc u v = Free (F.Remove_arc (u, v, Pure ()))
+end
 
