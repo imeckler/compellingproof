@@ -53,6 +53,12 @@ module Angle = struct
 
   let sin x = sin (to_radians x)
 
+  let acos x = of_radians (acos x)
+
+  let asin x = of_radians (asin x)
+
+  let atan x = of_radians (atan x)
+
   let (+) = (+.)
   let (-) = (-.)
   let ( * ) = ( *. )
@@ -75,6 +81,9 @@ module Transform = struct
     | Rotate (a, (x, y)) -> Printf.sprintf "rotate(%f %f %f)" a x y
     | Skew_x s           -> Printf.sprintf "skewX(%f)" s
     | Skew_y s           -> Printf.sprintf "skewY(%f)" s
+
+  let render_many ts =
+    String.concat_array ~sep:" " (Array.map ~f:render ts)
 end
 
 module Property = struct
@@ -219,7 +228,7 @@ type t =
                * float Frp.Behavior.t 
                * float Point.t Frp.Behavior.t
 
-  | Transform of t * Transform.t Frp.Behavior.t
+  | Transform of t * Transform.t array Frp.Behavior.t
 
   | Polygon   of shape_config
                * Property.t Frp.Behavior.t array 
@@ -341,7 +350,7 @@ let rec render =
     let (elt, sub) = render t in
     let trans_sub  = Jq.Dom.sink_attr elt
       ~name: "transform"
-      ~value:(Frp.Behavior.map ~f:Transform.render trans)
+      ~value:(Frp.Behavior.map ~f:Transform.render_many trans)
     in
     (elt, Frp.Subscription.merge trans_sub sub)
 

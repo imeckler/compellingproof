@@ -16,6 +16,10 @@ module Angle : sig
   val cos : t -> float
   val sin : t -> float
 
+  val acos : float -> t
+  val asin : float -> t
+  val atan : float -> t
+
   val (+) : t -> t -> t
   val (-) : t -> t -> t
   val ( * ) : float -> t -> t
@@ -152,7 +156,7 @@ val text
 *)
 val svg : Jq.Dom.t -> t
 
-val transform : t -> Transform.t Frp.Behavior.t -> t
+val transform : t -> Transform.t array Frp.Behavior.t -> t
 
 val pictures : t array -> t
 

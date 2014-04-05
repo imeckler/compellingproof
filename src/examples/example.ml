@@ -12,7 +12,7 @@ let square w h =
     cycle (quadratic 2000. ~final:360.)
     |> run ~init:0. |> Frp.Behavior.map ~f:Angle.of_degrees
   in
-  transform square (Frp.Behavior.map ~f:(fun a -> Transform.Rotate (a, ctr)) angle)
+  transform square (Frp.Behavior.map ~f:(fun a -> [|Transform.Rotate (a, ctr)|]) angle)
 
 let () =
   let svg = Jq.Dom.svg_node "svg" [| "width", "400"; "height", "600" |] in
