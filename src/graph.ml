@@ -215,3 +215,151 @@ module Builder = struct
   let remove_arc u v = Free (F.Remove_arc (u, v, Pure ()))
 end
 
+let () = Random.self_init ()
+
+module Mk_draw (M : sig
+  val charge_constant : float
+
+  val spring_constant : float
+
+  val width : int
+
+  val height : int
+end) = struct
+  let charge_accel p1 p2 =
+    let d = Vector.sub p2 p1 in
+    let c = (Vector.norm d ** 2.) in
+    if c = 0.
+    then (100., 100.)
+    else Vector.scale (-. M.charge_constant /. c) d
+
+  let spring_accel p1 p2 : (float * float) =
+    Vector.scale M.spring_constant (Vector.sub p2 p1)
+
+  let side_force_constant = 0.00001
+
+  let side_force_x h p (a, b) =
+    side_force_constant *. (atan (b /. (a -. p)) -. atan ((b -. h) /. (a -. p)))
+
+  let side_force_y h p (a, b) =
+    let f y = log ((a -. p) ** 2. +. (b -. y) ** 2.) in
+    -. (side_force_constant /. 2.) *. (f h -. f 0.)
+
+  let side_force h p pt = (side_force_x h p pt, side_force_y h p pt)
+
+  let horiz_force_x w p (a, b) =
+    let f x = log ((a -. x) ** 2. +. (b -. p) ** 2.) in
+    (side_force_constant /. 2.) *. (f 0. -. f w)
+
+  let horiz_force_y w p (a, b) =
+    side_force_constant *. (atan (a /. (b -. p)) -. atan ((a -. w) /. (b -. p)))
+
+  let horiz_force w p pt = (horiz_force_x w p pt, horiz_force_y w p pt)
+
+  let friction = Vector.scale (-0.001)
+
+  let clip_pos w h (x, y) = (min (w -. 5.) (max x 5.), min (h -. 5.) (max y 5.))
+
+  (* TODO: Find out why orthogonals was wrong
+  * let v2 = Vector.(add o1 (add v (scale 20. diff))) in *)
+  let edge_triangle pos1 pos2 = let open Draw in
+    polygon ~props:[|Frp.Behavior.return (Property.fill Color.black)|] 
+      (Frp.Behavior.zip_with pos1 pos2 ~f:(fun u v ->
+        let diff = Vector.(normed (sub u v)) in
+        let v1 = Vector.(add v (scale 10. diff)) in
+        let v2 = Angle.(rotate Vector.(add v (scale 20. diff)) ~about:v1 (of_degrees 30.)) in
+        let v3 = Angle.(rotate Vector.(add v (scale 20. diff)) ~about:v1 (of_degrees (-30.))) in
+        [| v1; v2; v3 |]
+      ))
+
+  let draw container g =
+    let w', h'     = float_of_int M.width, float_of_int M.height in
+    let data_g     = map_nodes g ~f:(fun _ -> 
+      Frp.Behavior.(return (Random.float w', Random.float h'), return (0., 0.))) in
+    let get_pos v  = Frp.Behavior.peek (fst (get_exn v data_g)) in
+
+    let spring_accels p0 vs =
+      Array.fold vs ~init:(0., 0.) ~f:(fun acc (v2, _) -> 
+        Vector.add acc (spring_accel p0 (get_pos v2))
+      )
+    in
+
+    (* TODO: change this to be a fold over the delta stream *)
+    let update delta =
+      let delta = Time.Span.to_ms delta in
+      iter_nodes data_g ~f:(fun v1 (posb1, velb1) ->
+        let pos1 = Frp.Behavior.peek posb1 in
+        let charge_acc = 
+          fold_nodes data_g ~init:(0., 0.) ~f:(fun acc v2 (posb2, _) ->
+            if v1 <> v2
+            then Vector.add acc (charge_accel pos1 (Frp.Behavior.peek posb2))
+            else acc
+          )
+        in
+        let forces = [|
+          charge_acc;
+          spring_accels pos1 (successors_exn v1 data_g);
+          spring_accels pos1 (predecessors_exn v1 data_g);
+          (side_force_x h' 0. pos1, 0.);
+          (side_force_x h' w' pos1, 0.);
+          (0. , horiz_force_y w' 0. pos1);
+          (0., horiz_force_y w' h' pos1);
+          friction (Frp.Behavior.peek velb1)
+        |]
+        in
+        let force = Array.fold ~init:(0., 0.) ~f:Vector.add forces in
+        let open Frp.Behavior in
+        let curr_vel = peek velb1 in
+        let pos' = Vector.add (peek posb1) (Vector.scale delta curr_vel) |> clip_pos w' h' in 
+
+        Frp.Behavior.(trigger velb1 (Vector.add curr_vel (Vector.scale delta force)));
+        Frp.Behavior.(trigger posb1 pos')
+      )
+    in
+
+    let drawing = let open Draw in
+      let circs = 
+        fold_nodes data_g ~init:[] ~f:(fun cs v (pos_v, _) ->
+          circle (Frp.Behavior.return 10.) pos_v
+          :: cs
+        ) |> Array.of_list
+      in
+      let edges =
+        fold_arcs data_g ~init:[] ~f:(fun es v1 v2 _ ->
+          let pos1 = fst (get_exn v1 data_g) in
+          let pos2 = fst (get_exn v2 data_g) in
+          path 
+            ~props:[| Frp.Behavior.return (Property.stroke Color.black 2) |]
+            ~anchor:pos1
+            (Frp.Behavior.map pos2 ~f:(fun p -> [|Segment.line_to p|]))
+          :: edge_triangle pos1 pos2
+          :: es
+        ) |> Array.of_list
+      in
+      pictures (Array.append circs edges)
+    in
+    begin
+      let (elt, sub) = Draw.render drawing in
+      let svg        = Jq.Dom.svg_node "svg" [| 
+        "width", string_of_int M.width; "height", string_of_int M.height |] in
+      Jq.Dom.append svg elt;
+
+      begin match Jq.to_dom_node container with
+        | None   -> print "Graph.draw: Empty Jq.t"
+        | Some t -> Jq.Dom.append t svg
+      end;
+
+      Frp.Stream.(iter (deltas 30.) ~f:update) |> ignore;
+    end
+end
+
+let draw ?(charge_constant=0.01) ?(spring_constant=0.000001) ~width ~height =
+  let module M = Mk_draw(struct
+    let charge_constant = charge_constant
+    let spring_constant = spring_constant
+    let width           = width
+    let height          = height
+  end)
+  in M.draw
+
+

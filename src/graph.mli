@@ -84,3 +84,12 @@ module Builder : sig
   val run : ('a, 'b) gph -> ('k, 'a, 'b) t -> ('a, 'b) gph
 end
 
+val draw
+  : ?charge_constant :float
+  -> ?spring_constant : float
+  -> width : int
+  -> height : int
+  -> Jq.t
+  -> ('a, 'b) t
+  -> unit
+
