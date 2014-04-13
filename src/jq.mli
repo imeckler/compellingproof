@@ -23,6 +23,10 @@ module Event : sig
 
   module Key : sig
     type t
+
+    val of_code : int -> t
+
+    val to_code : t -> int
   end
 end
 
@@ -67,6 +71,8 @@ val sink_attr : t -> name:string -> value:string Frp.Behavior.t -> Frp.Subscript
 val css : t -> (string * string) array -> unit
 
 val on : t -> string -> (Dom_html.event Js.t -> unit) -> unit
+
+val keys : Event.Key.t array Frp.Behavior.t
 
 val mouse_pos : (int * int) Frp.Stream.t
 

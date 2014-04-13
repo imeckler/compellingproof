@@ -431,3 +431,9 @@ let rec render =
     in
     (container, Subscription.(merge dyn_sub (make (fun () -> cancel !last_sub))))
 
+let render_svg_node ~width ~height t =
+  let elt, sub = render t in
+  let svg = Jq.Dom.svg_node "svg" [| "width", string_of_int width; "height", string_of_int height |] in
+  Jq.Dom.append svg elt;
+  (svg, sub)
+

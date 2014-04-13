@@ -45,6 +45,11 @@ let sink_attr t ~name ~value =
 let to_dom_node t =
   Js.Optdef.to_option (Js.Unsafe.(meth_call t "get" [| inject 0 |]))
 
+let to_dom_node_exn t =
+  match to_dom_node t with
+  | None   -> failwith "Jq.to_dom_node_exn: Empty object"
+  | Some x -> x
+
 module Dom = struct
   type t = Dom_html.element Js.t
 
@@ -115,10 +120,32 @@ module Event = struct
 
   module Key = struct
     type t = int
+
+    let of_code t = t
+
+    let to_code t = t
   end
 end
 
 let body = unsafe_jq "body"
+
+let keys =
+  let elt          = to_dom_node_exn body in
+  let pressed      = Inttbl.create () in
+  let b            = Frp.Behavior.return [||] in
+  let key_down evt =
+    Inttbl.add pressed ~key:(evt##keyCode) ~data:();
+    Frp.Behavior.trigger b (Inttbl.keys pressed);
+    Js._true
+  in
+  let key_up evt =
+    Inttbl.remove pressed (evt##keyCode);
+    Frp.Behavior.trigger b (Inttbl.keys pressed);
+    Js._true
+  in
+  elt##onkeydown <- Dom_html.handler key_down;
+  elt##onkeyup   <- Dom_html.handler key_up;
+  b
 
 let mouse_pos =
   let s = Frp.Stream.create () in
