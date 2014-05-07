@@ -151,6 +151,12 @@ val text
   -> t)
   with_shape_args
 
+val image
+  : width:int Frp.Behavior.t
+  -> height:int Frp.Behavior.t
+  -> string Frp.Behavior.t
+  -> t
+
 (* Inject an already constructed node. This function does not check to
    make sure the node is valid.
 *)

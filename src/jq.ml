@@ -33,14 +33,24 @@ let css t ps =
 let on t event_name (f : Dom_html.event Js.t -> unit) : unit =
   Js.Unsafe.(meth_call t "on" [| inject (Js.string event_name); inject (Js.wrap_callback f) |])
 
+let on_wrapped t event_name handler : unit = let open Js.Unsafe in
+  meth_call t "on" [|inject (Js.string event_name); inject handler|]
+
+let off_wrapped t event_name handler : unit = let open Js.Unsafe in
+  meth_call t "off" [|inject (Js.string event_name); inject handler|]
+
 let set_attr t ~name ~value : unit =
   Js.Unsafe.(meth_call t "attr" [| inject (Js.string name); inject (Js.string value) |])
+
+let stop_on_removal t sub =
+  on t "removal" (fun _ -> Frp.Subscription.cancel sub);
+  sub
 
 let sink_attr t ~name ~value =
   set_attr t ~name ~value:(Frp.Behavior.peek value);
   Frp.Stream.iter (Frp.Behavior.changes value) ~f:(fun value ->
     set_attr t ~name ~value
-  )
+  ) |> stop_on_removal t
 
 let to_dom_node t =
   Js.Optdef.to_option (Js.Unsafe.(meth_call t "get" [| inject 0 |]))
@@ -61,13 +71,14 @@ module Dom = struct
     let name = Js.string name in
     Frp.Stream.iter (Frp.Behavior.changes value) ~f:(fun value ->
       t##setAttribute(name, Js.string value)
-    )
+    ) |> stop_on_removal (wrap t)
 
   let set_html (t : t) s = t##innerHTML <- Js.string s
 
   let sink_html t sb =
     set_html t (Frp.Behavior.peek sb);
     Frp.Stream.iter (Frp.Behavior.changes sb) ~f:(set_html t)
+    |> stop_on_removal (wrap t)
 
   let append t c = Dom.appendChild t c
 
@@ -129,53 +140,68 @@ end
 
 let body = unsafe_jq "body"
 
-let keys =
-  let elt          = to_dom_node_exn body in
-  let pressed      = Inttbl.create () in
-  let b            = Frp.Behavior.return [||] in
-  let key_down evt =
-    Inttbl.add pressed ~key:(evt##keyCode) ~data:();
-    Frp.Behavior.trigger b (Inttbl.keys pressed);
-    Js._true
-  in
-  let key_up evt =
-    Inttbl.remove pressed (evt##keyCode);
-    Frp.Behavior.trigger b (Inttbl.keys pressed);
-    Js._true
-  in
-  elt##onkeydown <- Dom_html.handler key_down;
-  elt##onkeyup   <- Dom_html.handler key_up;
-  b
+(* TODO: Oh god what do I name this *)
 
+let setup_event_handlers t hs =
+  let hs' = Array.map hs ~f:(fun (event_name, handler) ->
+    (event_name, Js.wrap_callback handler))
+  in
+  Array.iter hs' ~f:(fun (event_name, wrapped_handler) ->
+    on_wrapped t event_name wrapped_handler);
+  fun () -> Array.iter hs' ~f:(fun (event_name, wrapped_handler) ->
+    off_wrapped t event_name wrapped_handler)
+
+let key_stream =
+  Frp.Stream.create ~start:(fun trigger ->
+    let which e      = Js.Unsafe.(get e (Js.string "which")) in
+    setup_event_handlers body [|
+      "keydown", (fun e -> trigger (`Down (which e)));
+      "keyup"  , (fun e -> trigger (`Up (which e)));
+    |])
+  ()
+
+let keys =
+  let pressed = Inttbl.create () in
+  Frp.scan ~init:[||] key_stream ~f:(fun _ k -> 
+    begin match k with
+      | `Down n -> Inttbl.add pressed ~key:n ~data:()
+      | `Up n -> Inttbl.remove pressed n
+    end;
+    Inttbl.keys pressed)
+    
 let mouse_pos =
-  let s = Frp.Stream.create () in
-  on body "mousemove" (fun e ->
-    let pos = Js.Unsafe.(get e (Js.string "pageX"), get e (Js.string "pageY")) in
-    Frp.Stream.trigger s pos 
-  );
-  s
+  Frp.Stream.create ~start:(fun trigger ->
+    let handler e =
+      trigger Js.Unsafe.(get e (Js.string "pageX"), get e (Js.string "pageY"))
+    in
+    setup_event_handlers body [|"mousemove", handler|])
+  ()
 
 let mouse_movements = 
   Frp.Stream.delta mouse_pos ~f:(fun (x0, y0) (x1, y1) -> (x1 - x0, y1 - y0))
 
 let clicks t =
-  (* TODO: Consider adding a variant for uninitialized streams to prevent stuff like this *)
-  let s = Frp.Stream.create () in
-  on t "click" (fun e ->
-    let pos = Js.Unsafe.(get e (Js.string "offsetX"), get e (Js.string "offsetY")) in
-    let button = Event.Mouse.Button.from_code Js.Unsafe.(get e (Js.string "which")) in
-    Frp.Stream.trigger s { Event.Mouse.Click.pos ; button }
-  );
-  s
-;;
+  Frp.Stream.create ~start:(fun trigger ->
+    let handler e =
+      let pos = Js.Unsafe.(get e (Js.string "offsetX"), get e (Js.string "offsetY")) in
+      let button = Event.Mouse.Button.from_code Js.Unsafe.(get e (Js.string "which")) in
+      trigger { Event.Mouse.Click.pos ; button }
+    in
+    setup_event_handlers t [|"click", handler|])
+  ()
 
 let clicks_with button t = Frp.Stream.filter (clicks t) ~f:(fun b -> b = button)
 
 let dragged t =
-  let b = Frp.Behavior.return false in
-  on t    "mousedown" (fun _ -> Frp.Behavior.trigger b true);
-  on body "mouseup"   (fun _ -> Frp.Behavior.trigger b false);
-  b
+  Frp.Stream.create ~start:(fun trigger ->
+    let stop_down_handler =
+      setup_event_handlers t [|"mousedown", fun _ -> trigger true|]
+    in
+    let stop_up_handler =
+      setup_event_handlers body [|"mouseup", fun _ -> trigger false|]
+    in
+    fun () -> stop_down_handler (); stop_up_handler ()) ()
+  |> Frp.latest ~init:false
 
 let drags t = Frp.when_ (dragged t) mouse_movements
 

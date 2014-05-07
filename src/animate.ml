@@ -1,15 +1,5 @@
 open Core
 
-let transfer b b' =
-  let sub = Frp.Stream.iter (Frp.Behavior.changes b) ~f:(fun x ->
-    Frp.Behavior.trigger b' x
-  ) in
-  sub
-
-let copy_behavior b =
-  let b'  = Frp.Behavior.(return (peek b)) in
-  (b', transfer b b')
-
 module Sequence = struct
   type finished
   type unfinished

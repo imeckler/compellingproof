@@ -196,14 +196,32 @@ module Name = struct
 
   let extend_on_render t f =
     let curr = t.on_render in
-    t.on_render <- (fun e -> Frp.Subscription.merge (curr e) (f e))
+    t.on_render <- (fun elt -> Frp.Subscription.merge (curr elt) (f elt))
 
   let copy_stream s s' = 
     Frp.Stream.(iter s ~f:(fun x -> trigger s' x))
 
+  let copy_stream s =
+    Frp.Stream.create ~start:(fun trigger ->
+      let sub = Frp.Stream.iter ~f:trigger s in
+      fun () -> Frp.Subscription.cancel sub
+    ) ()
+
+  let copy_stream ~from trigger =
+    Frp.Stream.iter from ~f:trigger
+
   (* TODO: Figure out a nicer way of doing this so I don't have to duplicate
    * code from jq or wastefully create a new stream
    *)
+
+  let jq_stream mk_stream t =
+    let sub = ref None in
+    let s, trigger = Frp.Stream.create ~start:(fun _ ->
+      fun () -> Option.iter !sub ~f:Frp.Subscription.cancel)
+    in
+    let sink_events elt = copy_stream (mk_stream elt)
+
+
   let jq_stream mk_stream t =
     let s = Frp.Stream.create () in
     let sink e = copy_stream (mk_stream e) s in
@@ -259,6 +277,9 @@ type t =
 
   | Pictures  of t array
 
+  (* TODO: Think about if we should pass x and y attributes here too *)
+  | Image     of string Frp.Behavior.t * int Frp.Behavior.t * int Frp.Behavior.t
+
   | Dynamic   of t Frp.Behavior.t
 
   | Svg       of Jq.Dom.t
@@ -280,6 +301,8 @@ let text ?name ?(props=[||]) str corner = Text ({name}, props, corner, str)
 let svg e = Svg e
 
 let transform t trans = Transform (t, trans)
+
+let image ~width ~height url = Image (url, width, height)
 
 let pictures ts = Pictures ts
 
@@ -317,6 +340,8 @@ let rec render =
   let mk_name_sub name_opt elt = 
     Option.value_map name_opt ~f:(fun name -> Name.init elt name) ~default:Frp.Subscription.empty
   in
+
+  let pixel_str_of_int n = string_of_int n ^ "px" in
 
   let open Frp in function
   
@@ -409,6 +434,16 @@ let rec render =
     |]
     in
     (elt, subs)
+
+  | Image (urlb, widthb, heightb) -> let open Frp.Behavior in
+    let elt = Jq.Dom.svg_node "image" [||] in
+    let sub = sink_attrs elt [|
+      "xlink:href", urlb;
+      "width", Frp.Behavior.map ~f:pixel_str_of_int widthb;
+      "height", Frp.Behavior.map ~f:pixel_str_of_int heightb
+    |]
+    in
+    (elt, sub)
 
   | Pictures pics ->
     let elts = Array.map ~f:render pics in
