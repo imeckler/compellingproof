@@ -198,34 +198,17 @@ module Name = struct
     let curr = t.on_render in
     t.on_render <- (fun elt -> Frp.Subscription.merge (curr elt) (f elt))
 
-  let copy_stream s s' = 
-    Frp.Stream.(iter s ~f:(fun x -> trigger s' x))
-
-  let copy_stream s =
-    Frp.Stream.create ~start:(fun trigger ->
-      let sub = Frp.Stream.iter ~f:trigger s in
-      fun () -> Frp.Subscription.cancel sub
-    ) ()
-
   let copy_stream ~from trigger =
     Frp.Stream.iter from ~f:trigger
 
-  (* TODO: Figure out a nicer way of doing this so I don't have to duplicate
-   * code from jq or wastefully create a new stream
-   *)
-
+  (* TODO: This is a mess *)
   let jq_stream mk_stream t =
-    let sub = ref None in
-    let s, trigger = Frp.Stream.create ~start:(fun _ ->
-      fun () -> Option.iter !sub ~f:Frp.Subscription.cancel)
+    let sub = ref Frp.Subscription.empty in
+    let s, trigger = Frp.Stream.create' () ~start:(fun _ ->
+      fun () -> Frp.Subscription.cancel !sub)
     in
-    let sink_events elt = copy_stream (mk_stream elt)
-
-
-  let jq_stream mk_stream t =
-    let s = Frp.Stream.create () in
-    let sink e = copy_stream (mk_stream e) s in
-    extend_on_render t sink;
+    let sink_events elt = sub := copy_stream ~from:(mk_stream elt) trigger; !sub in
+    extend_on_render t sink_events;
     s
 
   let clicks t = jq_stream Jq.clicks t

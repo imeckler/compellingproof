@@ -276,7 +276,11 @@ end) = struct
     let w', h'     = float_of_int M.width, float_of_int M.height in
     let data_g     = map_nodes g ~f:(fun _ -> 
       Frp.Behavior.(return (Random.float w', Random.float h'), return (0., 0.))) in
-    let get_pos v  = Frp.Behavior.peek (fst (get_exn v data_g)) in
+    let data_g = map_nodes g ~f:(fun _ ->
+      Arrow.first (Frp.latest ~init:(Random.float w', Random.float h')) (Frp.Stream.create' ()),
+      Arrow.first (Frp.latest ~init:(0.,0.)) (Frp.Stream.create' ())
+    ) in
+    let get_pos v = Frp.Behavior.peek (fst (fst (get_exn v data_g))) in
 
     let spring_accels p0 vs =
       Array.fold vs ~init:(0., 0.) ~f:(fun acc (v2, _) -> 
@@ -287,10 +291,10 @@ end) = struct
     (* TODO: change this to be a fold over the delta stream *)
     let update delta =
       let delta = Time.Span.to_ms delta in
-      iter_nodes data_g ~f:(fun v1 (posb1, velb1) ->
+      iter_nodes data_g ~f:(fun v1 ((posb1, pos_trigger), (velb1, vel_trigger)) ->
         let pos1 = Frp.Behavior.peek posb1 in
-        let charge_acc = 
-          fold_nodes data_g ~init:(0., 0.) ~f:(fun acc v2 (posb2, _) ->
+        let charge_acc =
+          fold_nodes data_g ~init:(0., 0.) ~f:(fun acc v2 ((posb2, _), _) ->
             if v1 <> v2
             then Vector.add acc (charge_accel pos1 (Frp.Behavior.peek posb2))
             else acc
@@ -312,22 +316,22 @@ end) = struct
         let curr_vel = peek velb1 in
         let pos' = Vector.add (peek posb1) (Vector.scale delta curr_vel) |> clip_pos w' h' in 
 
-        Frp.Behavior.(trigger velb1 (Vector.add curr_vel (Vector.scale delta force)));
-        Frp.Behavior.(trigger posb1 pos')
+        vel_trigger (Vector.add curr_vel (Vector.scale delta force));
+        pos_trigger pos';
       )
     in
 
     let drawing = let open Draw in
       let circs = 
-        fold_nodes data_g ~init:[] ~f:(fun cs v (pos_v, _) ->
-          circle (Frp.Behavior.return 10.) pos_v
+        fold_nodes data_g ~init:[] ~f:(fun cs v ((pos_b, _), _) ->
+          circle (Frp.Behavior.return 10.) pos_b
           :: cs
         ) |> Array.of_list
       in
       let edges =
         fold_arcs data_g ~init:[] ~f:(fun es v1 v2 _ ->
-          let pos1 = fst (get_exn v1 data_g) in
-          let pos2 = fst (get_exn v2 data_g) in
+          let pos1 = fst (fst (get_exn v1 data_g)) in
+          let pos2 = fst (fst (get_exn v2 data_g)) in
           path 
             ~props:[| Frp.Behavior.return (Property.stroke Color.black 2) |]
             ~anchor:pos1
