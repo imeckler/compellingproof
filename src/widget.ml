@@ -122,6 +122,7 @@ module Control = struct
   let drags _ canvas  = Jq.drags canvas
 
   let drag_point init : (int * int) Frp.Behavior.t t = fun _ canvas ->
+    println "Widget.drag_point";
     let open Jq.Event.Mouse.Drag in
     Frp.scan (Jq.drags canvas) ~init
       ~f:(fun (x, y) (dx, dy) -> (x + dx,  y + dy))

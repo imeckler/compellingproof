@@ -170,40 +170,47 @@ let keys =
     Inttbl.keys pressed)
     
 let mouse_pos =
-  Frp.Stream.create ~start:(fun trigger ->
+  Frp.Stream.create () ~start:(fun trigger ->
     let handler e =
+      println "mouse_pos";
       trigger Js.Unsafe.(get e (Js.string "pageX"), get e (Js.string "pageY"))
     in
     setup_event_handlers body [|"mousemove", handler|])
-  ()
 
 let mouse_movements = 
   Frp.Stream.delta mouse_pos ~f:(fun (x0, y0) (x1, y1) -> (x1 - x0, y1 - y0))
 
 let clicks t =
-  Frp.Stream.create ~start:(fun trigger ->
+  println "clicks yo";
+  Frp.Stream.create () ~start:(fun trigger ->
+    println "clicks.start";
     let handler e =
       let pos = Js.Unsafe.(get e (Js.string "offsetX"), get e (Js.string "offsetY")) in
       let button = Event.Mouse.Button.from_code Js.Unsafe.(get e (Js.string "which")) in
       trigger { Event.Mouse.Click.pos ; button }
     in
     setup_event_handlers t [|"click", handler|])
-  ()
 
 let clicks_with button t = Frp.Stream.filter (clicks t) ~f:(fun b -> b = button)
 
 let dragged t =
   Frp.Stream.create ~start:(fun trigger ->
+    println "dragged.start";
     let stop_down_handler =
+      println "stop_down_handler";
       setup_event_handlers t [|"mousedown", fun _ -> trigger true|]
     in
     let stop_up_handler =
+      println "stop_up_handler";
       setup_event_handlers body [|"mouseup", fun _ -> trigger false|]
     in
+    println "hola";
     fun () -> stop_down_handler (); stop_up_handler ()) ()
   |> Frp.latest ~init:false
 
-let drags t = Frp.when_ (dragged t) mouse_movements
+let drags t =
+  println "drags";
+  Frp.when_ (dragged t) mouse_movements
 
 (* let drags_with button t = Frp.Stream.filter (drags t) ~f:(fun b -> b = button) *)
 
