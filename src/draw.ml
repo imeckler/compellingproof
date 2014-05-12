@@ -300,21 +300,28 @@ let sink_attrs elt ps =
   Array.map ~f:(fun (name, value) -> Jq.Dom.sink_attr elt ~name ~value) ps
   |> Frp.Subscription.concat
 
-(* TODO: Make it asynchronous by using a stream + Dynamic *)
+let parse_svg_string str =
+  let div = Dom_html.(createDiv document) in
+  div##innerHTML <- str;
+  Js.Opt.to_option ((div##getElementsByTagName(Js.string "svg"))##item(0))
+
 let svg_file url =
   let req = XmlHttpRequest.create () in
-  req##_open(Js.string "GET", Js.string url, Js._false);
+  let response, trigger = Frp.Stream.create' () in
+  req##onreadystatechange <- (Js.wrap_callback (fun () ->
+    match req##readyState with
+    | XmlHttpRequest.DONE -> trigger (req##responseText)
+    | _ -> ()));
+  let drawing_beh =
+    Frp.Stream.map ~f:(fun x -> Some x) response
+    |> Frp.latest ~init:None
+    |> Frp.Behavior.map ~f:(fun str_opt -> let open Option in let open Monad_infix in
+         value_map (str_opt >>= parse_svg_string) ~default:(pictures [||])
+          ~f:(fun e -> Svg (Obj.magic e)))
+  in
+  req##_open(Js.string "GET", Js.string url, Js._true);
   req##send(Js.Opt.return (Js.string ""));
-  let div = Dom_html.(createDiv document) in
-  div##innerHTML <- (req##responseText);
-  match Js.Opt.to_option ((div##getElementsByTagName(Js.string "svg"))##item(0)) with
-  | None -> failwith "Draw.svg_file: Parse failure"
-  | Some e -> 
-    let container = Jq.Dom.svg_node "g" [||] in
-    print Jq.(children (wrap (Obj.magic e)));
-    Array.iter Jq.(children (wrap (Obj.magic e))) ~f:(fun x ->
-      Jq.Dom.append container x);
-    Svg container
+  dynamic drawing_beh
 
 let rec render =
   let x_beh = Frp.Behavior.map ~f:(fun (x, _) -> string_of_float x) in
