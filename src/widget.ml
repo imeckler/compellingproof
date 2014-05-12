@@ -17,7 +17,7 @@ module Control = struct
     add_slider_listener' slider_elt event Js.Opt.empty
 
   let init_slider slider_elt args : unit =
-    Js.Unsafe.meth_call slider_elt "slider_elt" args
+    Js.Unsafe.meth_call slider_elt "slider" args
 
   module Continuous_slider = struct
     (* rate in percentage per seconds *)

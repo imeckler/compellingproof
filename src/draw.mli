@@ -40,6 +40,8 @@ module Color : sig
 
   val of_rgb : ?alpha:float -> r:int -> g:int -> b:int -> unit -> t
 
+  val random : unit -> t
+
   val white : t
   val black : t
   val red   : t
@@ -157,9 +159,12 @@ val image
   -> string Frp.Behavior.t
   -> t
 
+val svg_file : string -> t
+
 (* Inject an already constructed node. This function does not check to
    make sure the node is valid.
 *)
+
 val svg : Jq.Dom.t -> t
 
 val transform : t -> Transform.t array Frp.Behavior.t -> t

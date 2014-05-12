@@ -15,6 +15,9 @@ module Color = struct
 
   let of_rgb ?(alpha=1.0) ~r ~g ~b () = {r; g; b; alpha}
 
+  let random () = 
+    { r = Random.int 256; g = Random.int 256; b = Random.int 256; alpha = 1.0 }
+
   let render {r; g; b; alpha} =
     Printf.sprintf "rgba(%d,%d,%d,%f)" r g b alpha
 
@@ -296,6 +299,22 @@ let render_properties ps = String.concat_array ~sep:";" (Array.map ps ~f:Propert
 let sink_attrs elt ps =
   Array.map ~f:(fun (name, value) -> Jq.Dom.sink_attr elt ~name ~value) ps
   |> Frp.Subscription.concat
+
+(* TODO: Make it asynchronous by using a stream + Dynamic *)
+let svg_file url =
+  let req = XmlHttpRequest.create () in
+  req##_open(Js.string "GET", Js.string url, Js._false);
+  req##send(Js.Opt.return (Js.string ""));
+  let div = Dom_html.(createDiv document) in
+  div##innerHTML <- (req##responseText);
+  match Js.Opt.to_option ((div##getElementsByTagName(Js.string "svg"))##item(0)) with
+  | None -> failwith "Draw.svg_file: Parse failure"
+  | Some e -> 
+    let container = Jq.Dom.svg_node "g" [||] in
+    print Jq.(children (wrap (Obj.magic e)));
+    Array.iter Jq.(children (wrap (Obj.magic e))) ~f:(fun x ->
+      Jq.Dom.append container x);
+    Svg container
 
 let rec render =
   let x_beh = Frp.Behavior.map ~f:(fun (x, _) -> string_of_float x) in

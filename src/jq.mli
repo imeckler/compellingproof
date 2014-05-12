@@ -56,6 +56,8 @@ val create : string -> t
 
 val jq : string -> t option
 
+val children : t -> Dom.t array
+
 val append : t -> t -> unit
 
 val empty : t -> unit
