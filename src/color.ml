@@ -1,4 +1,5 @@
 type t = { r : int; g : int; b : int; alpha : float }
+type color = t
 
 let of_rgb ?(alpha=1.0) r g b = {r; g; b; alpha}
 
@@ -15,3 +16,8 @@ let green = { r = 0; g = 255; b = 0; alpha = 1.0 }
 let blue  = { r = 0; g = 0; b = 255; alpha = 1.0 }
 let none  = { blue with alpha = 0. }
 
+module Gradient = struct
+  type t =
+    | Linear of (float * float) * (float * float) * (float * color) array
+    | Radial of (float * float) * float * (float * float) * float * (float * color) array
+end

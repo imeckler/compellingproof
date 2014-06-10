@@ -125,11 +125,14 @@ module Property = struct
   (* TODO: Fix the masking so that a mask can be applied to a dashed path *)
 
   let render = 
+    let render_color {Color.r; g; b; alpha} =
+      Printf.sprintf "rgba(%d,%d,%d,%f)" r g b alpha
+    in
     function
-    | Fill c -> "fill:" ^ Color.render c
+    | Fill c -> "fill:" ^ render_color c
     | Stroke {Stroke.cap; join; width; color} ->
       String.concat_array ~sep:";"
-      [| "stroke:"          ^ Color.render color
+      [| "stroke:"          ^ render_color color
        ; "stroke-width:"    ^ string_of_int width
        ; "stroke-linecap:"  ^ Stroke.Linecap.render cap
        ; "stroke-linejoin:" ^ Stroke.Linejoin.render join
