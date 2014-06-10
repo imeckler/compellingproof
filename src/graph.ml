@@ -215,6 +215,17 @@ module Builder = struct
   let remove_arc u v = Free (F.Remove_arc (u, v, Pure ()))
 end
 
+let from_adjacency_lists adjs = let open Builder in let open Monad_infix in
+  begin
+    all (List.map ~f:(fun (x, _) -> new_node x) adjs) >>= fun nodes ->
+      let nodes_arr = Array.of_list nodes in
+      List.map2_exn nodes adjs ~f:(fun v (_, arcs) ->
+        List.map arcs ~f:(fun (u_i, edge_value) ->
+          add_arc v nodes_arr.(u_i) edge_value)
+        |> all)
+      |> all
+  end |> run (empty ())
+
 let () = Random.self_init ()
 
 module Mk_draw (M : sig
@@ -263,7 +274,7 @@ end) = struct
   (* TODO: Find out why orthogonals was wrong
   * let v2 = Vector.(add o1 (add v (scale 20. diff))) in *)
   let edge_triangle pos1 pos2 = let open Draw in
-    polygon ~props:[|Frp.Behavior.return (Property.fill Color.black)|] 
+    polygon ~fill:(Frp.Behavior.return Color.black)
       (Frp.Behavior.zip_with pos1 pos2 ~f:(fun u v ->
         let diff = Vector.(normed (sub u v)) in
         let v1 = Vector.(add v (scale 10. diff)) in
@@ -332,8 +343,7 @@ end) = struct
         fold_arcs data_g ~init:[] ~f:(fun es v1 v2 _ ->
           let pos1 = fst (fst (get_exn v1 data_g)) in
           let pos2 = fst (fst (get_exn v2 data_g)) in
-          path 
-            ~props:[| Frp.Behavior.return (Property.stroke Color.black 2) |]
+          path ~stroke:(Frp.Behavior.return (Stroke.create Color.black 2))
             ~anchor:pos1
             (Frp.Behavior.map pos2 ~f:(fun p -> [|Segment.line_to p|]))
           :: edge_triangle pos1 pos2

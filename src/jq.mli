@@ -56,6 +56,10 @@ val create : string -> t
 
 val jq : string -> t option
 
+val find : string -> t option
+
+val find_descendants : t -> string -> t array
+
 val children : t -> Dom.t array
 
 val append : t -> t -> unit
@@ -65,6 +69,9 @@ val empty : t -> unit
 val width : t -> int
 
 val height : t -> int
+
+(* Returns (left, top) *)
+val offset : t -> (int * int)
 
 val set_attr : t -> name:string -> value:string -> unit
 
@@ -77,6 +84,9 @@ val on : t -> string -> (Dom_html.event Js.t -> unit) -> unit
 val keys : Event.Key.t array Frp.Behavior.t
 
 val mouse_pos : (int * int) Frp.Stream.t
+
+(* Mouse position relative to the upper left of the given element *)
+val relative_mouse_pos : t -> (int * int) Frp.Stream.t
 
 val mouse_movements : (int * int) Frp.Stream.t
 

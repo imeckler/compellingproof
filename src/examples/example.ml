@@ -3,8 +3,7 @@ let square w h =
   let side_len = min w h /. 2. in
   let ctr      = (w /. 2., h /. 2. ) in
   let square   = let open Frp.Behavior in let open Property in
-    rect 
-      ~props:[|return (fill Color.black)|]
+    rect ~fill:(return Color.black)
       ~width:(return side_len) ~height:(return side_len)
       (return ((w -. side_len) /. 2., (h -. side_len) /. 2.))
   in

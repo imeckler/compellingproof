@@ -35,20 +35,6 @@ module Angle : sig
   val about : center:float Point.t -> float Point.t -> t
 end
 
-module Color : sig
-  type t = { r : int; g : int; b : int; alpha : float }
-
-  val of_rgb : ?alpha:float -> r:int -> g:int -> b:int -> unit -> t
-
-  val random : unit -> t
-
-  val white : t
-  val black : t
-  val red   : t
-  val blue  : t
-  val none  : t
-end
-
 module Transform : sig
   type t =
     | Matrix    of float * float * float * float * float * float
@@ -57,29 +43,50 @@ module Transform : sig
     | Rotate    of Angle.t * float Point.t
     | Skew_x    of float
     | Skew_y    of float
+
+  val translate : float * float -> t
+  val scale : float -> float -> t
+  val rotate : ?about:float Point.t -> Angle.t -> t
+  val skew_x : float -> t
+  val skew_y : float -> t
 end
 
 module Property : sig
-  (* TODO: Add more properties *)
-  module Stroke : sig
-    module Linecap : sig
-      type t = [ `Butt | `Square | `Round ]
-    end
-
-    module Linejoin : sig
-      type t = [ `Miter | `Round | `Bevel ]
-    end
-  end
-
   type t
 
-  val fill : Color.t -> t
-
   val any : name:string -> value:string -> t
+end
 
-  val stroke
-    : ?cap:Stroke.Linecap.t
-    -> ?join:Stroke.Linejoin.t
+module Color : sig
+  type t = { r : int; g : int; b : int; alpha : float }
+
+  val of_rgb : ?alpha:float -> int -> int -> int -> t
+
+  val random : unit -> t
+
+  val white : t
+  val black : t
+  val red   : t
+  val green : t
+  val blue  : t
+  val none  : t
+end
+
+(* TODO: Add more properties *)
+module Stroke : sig
+  type t
+
+  module Linecap : sig
+    type t = [ `Butt | `Square | `Round ]
+  end
+
+  module Linejoin : sig
+    type t = [ `Miter | `Round | `Bevel ]
+  end
+
+  val create
+    : ?cap:Linecap.t
+    -> ?join:Linejoin.t
     -> Color.t
     -> int
     -> t
@@ -111,6 +118,8 @@ type t
 
 type 'k with_shape_args
   = ?name:Name.t
+  -> ?fill:Color.t Frp.Behavior.t
+  -> ?stroke:Stroke.t Frp.Behavior.t
   -> ?props:(Property.t Frp.Behavior.t array)
   -> 'k
 
@@ -168,6 +177,8 @@ val svg_file : string -> t
 val svg : Jq.Dom.t -> t
 
 val transform : t -> Transform.t array Frp.Behavior.t -> t
+
+val translate : t -> (float * float) Frp.Behavior.t -> t
 
 val pictures : t array -> t
 

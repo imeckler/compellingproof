@@ -15,10 +15,17 @@ let wrap elt =
 
 let create tag = unsafe_jq ("<" ^ tag ^ ">")
 
+let to_ocaml_array t =
+  Js.(to_array Unsafe.(meth_call t "toArray" [||]))
+
 let children t =
-  Js.to_array (
-    Js.Unsafe.(
-      meth_call (meth_call t "children" [||]) "toArray" [||]))
+  to_ocaml_array (Js.Unsafe.meth_call t "children" [||])
+
+let find = jq
+
+let find_descendants t selector =
+  Array.map ~f:wrap
+    (to_ocaml_array (Js.Unsafe.(meth_call t "find" [|inject (Js.string selector)|])))
 
 let append parent child =
   Js.Unsafe.meth_call parent "append" [| Js.Unsafe.inject child |]
@@ -29,6 +36,11 @@ let empty t =
 let width t = Js.Unsafe.meth_call t "width" [||]
 
 let height t = Js.Unsafe.meth_call t "height" [||]
+
+let offset t =
+  let o = Js.Unsafe.meth_call t "offset" [||] in
+  Js.Unsafe.(
+    get o (Js.string "left"), get o (Js.string "top"))
 
 let css t ps = 
   let open Js.Unsafe in
@@ -180,6 +192,10 @@ let mouse_pos =
       trigger Js.Unsafe.(get e (Js.string "pageX"), get e (Js.string "pageY"))
     in
     setup_event_handlers body [|"mousemove", handler|])
+
+let relative_mouse_pos t =
+  Frp.Stream.map mouse_pos ~f:(fun (x, y) ->
+    let (left, top) = offset t in (x - left, y - top))
 
 let mouse_movements = 
   Frp.Stream.delta mouse_pos ~f:(fun (x0, y0) (x1, y1) -> (x1 - x0, y1 - y0))

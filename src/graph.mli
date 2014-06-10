@@ -11,6 +11,10 @@ end
 
 type ('a, 'b) t
 
+(* Throws exception if the adjacency list references a vertex
+ * which isn't given a value in the list *)
+val from_adjacency_lists : ('a * (int * 'b) list) list -> ('a, 'b) t
+
 val get : ('a, 'b) Node.t -> ('a, 'b) t -> 'a option
 
 val get_exn : ('a, 'b) Node.t -> ('a, 'b) t -> 'a

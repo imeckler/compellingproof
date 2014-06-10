@@ -10,24 +10,6 @@ module Point = struct
   let render_many pts = String.concat_array ~sep:" " (Array.map pts ~f:render)
 end
 
-module Color = struct
-  type t = { r : int; g : int; b : int; alpha : float }
-
-  let of_rgb ?(alpha=1.0) ~r ~g ~b () = {r; g; b; alpha}
-
-  let random () = 
-    { r = Random.int 256; g = Random.int 256; b = Random.int 256; alpha = 1.0 }
-
-  let render {r; g; b; alpha} =
-    Printf.sprintf "rgba(%d,%d,%d,%f)" r g b alpha
-
-  let white = { r = 255; g = 255; b = 255; alpha = 1.0 }
-  let black = { r = 0; g = 0; b = 0; alpha = 1.0 }
-  let red   = { r = 255; g = 0; b = 0; alpha = 1.0 }
-  let blue  = { r = 0; g = 0; b = 255; alpha = 1.0 }
-  let none  = { blue with alpha = 0. }
-end
-
 module Angle = struct
   type t = float (* Internally we use degrees *)
 
@@ -76,6 +58,12 @@ module Transform = struct
     | Skew_x    of float
     | Skew_y    of float
 
+  let translate (x, y) = Translate (x, y)
+  let scale x y = Scale (x, y)
+  let rotate ?(about=(0., 0.)) angle = Rotate (angle, about)
+  let skew_x c = Skew_x c
+  let skew_y c = Skew_y c
+
   let render = function
     | Matrix (a, b, c, d, e, f) ->
         Printf.sprintf "matrix(%f,%f,%f,%f,%f,%f)" a b c d e f
@@ -90,10 +78,6 @@ module Transform = struct
 end
 
 module Property = struct
-  (* TODO: This whole system needs to be redone. Decide if all properties should
-   * be together in one record.
-   *)
-
   module Stroke = struct
     module Linecap = struct
       type t = [ `Butt | `Square | `Round ]
@@ -121,6 +105,8 @@ module Property = struct
       ; color       : Color.t
       }
 
+    let create ?(cap=`Butt) ?(join=`Miter) color width =
+      {cap; join; color; width}
   end
 
   type t =
@@ -132,10 +118,9 @@ module Property = struct
 
   let fill c = Fill c
 
-  let any ~name ~value = Any (name, value)
+  let stroke s = Stroke s
 
-  let stroke ?(cap=`Butt) ?(join=`Miter) color width =
-    Stroke {Stroke.cap; join; color; width}
+  let any ~name ~value = Any (name, value)
 
   (* TODO: Fix the masking so that a mask can be applied to a dashed path *)
 
@@ -154,6 +139,8 @@ module Property = struct
       ^ String.concat_array ~sep:" " (Array.map ~f:string_of_float xs)
     | Any (name, value) -> Printf.sprintf "%s:%s" name value
 end
+
+module Stroke = Property.Stroke
 
 module Segment = struct
   type t =
@@ -270,23 +257,43 @@ type t =
 
   | Svg       of Jq.Dom.t
 
-type 'k with_shape_args = ?name:Name.t -> ?props:(Property.t Frp.Behavior.t array) -> 'k
+type 'k with_shape_args =
+  ?name:Name.t
+  -> ?fill:Color.t Frp.Behavior.t
+  -> ?stroke:Stroke.t Frp.Behavior.t
+  -> ?props:(Property.t Frp.Behavior.t array)
+  -> 'k
 
-let circle ?name ?(props=[||]) r center = Circle ({name}, props, r, center)
+let add_opt_prop f xo arr = Option.value_map xo ~default:arr ~f:(fun x ->
+  Array.append [|Frp.Behavior.map ~f x|] arr)
 
-let rect ?name ?(props=[||]) ~width ~height corner = Rect ({name}, props, corner, width, height) 
+let add_opt_props fill stroke props =
+  add_opt_prop Property.fill fill (add_opt_prop Property.stroke stroke props)
 
-let polygon ?name ?(props=[||]) pts = Polygon ({name}, props, pts)
+let circle ?name ?fill ?stroke ?(props=[||]) r center =
+  Circle ({name}, add_opt_props fill stroke props, r, center)
 
-let path ?name ?(props=[||]) ?mask ~anchor segs = Path ({name}, props, anchor, mask, segs)
+let rect ?name ?fill ?stroke ?(props=[||]) ~width ~height corner =
+  Rect ({name}, add_opt_props fill stroke props, corner, width, height) 
 
-let path_string ?name ?(props=[||]) ?mask strb = Path_str ({name}, props, mask, strb)
+let polygon ?name ?fill ?stroke ?(props=[||]) pts =
+  Polygon ({name}, add_opt_props fill stroke props, pts)
 
-let text ?name ?(props=[||]) str corner = Text ({name}, props, corner, str)
+let path ?name ?fill ?stroke ?(props=[||]) ?mask ~anchor segs =
+  Path ({name}, add_opt_props fill stroke props, anchor, mask, segs)
+
+let path_string ?name ?fill ?stroke ?(props=[||]) ?mask strb =
+  Path_str ({name}, add_opt_props fill stroke props, mask, strb)
+
+let text ?name ?fill ?stroke ?(props=[||]) str corner =
+  Text ({name}, add_opt_props fill stroke props, corner, str)
 
 let svg e = Svg e
 
 let transform t trans = Transform (t, trans)
+
+let translate t move =
+  Transform (t, Frp.Behavior.map move~f:(fun (x,y) -> [|Transform.Translate (x,y)|]))
 
 let image ~width ~height url = Image (url, width, height)
 
