@@ -44,6 +44,8 @@ end
 
 module Path = struct
   type t = (float * float) array
+
+  let create t = t
 end
 
 module Shape = struct
@@ -78,14 +80,85 @@ end
 
 module Transform = struct
   type t =
-    { translation : int * int
-    ; matrix      : int * int * int * int
+    { translation : float * float
+    ; matrix      : float * float * float * float
     }
 
   let identity = 
-    { translation = (0, 0)
-    ; matrix = (1, 0, 0, 1)
+    { translation = (0., 0.)
+    ; matrix = (1., 0., 0., 1.)
     }
+end
+
+module Element = struct
+
+  let guid = let x = ref 0 in (fun () -> (incr x; !x))
+
+  module Image_style = struct
+    type t = Plain | Fitted | Cropped of int * int | Tiled
+  end
+
+  module Position = struct
+    type pos = Absolute of int | Relative of float
+
+    type t =
+      { horizontal : [`P | `Z | `N]
+      ; vertical   : [`P | `Z | `N]
+      ; x : pos
+      ; y : pos
+      }
+  end
+
+  module Direction = struct
+    type t = Up | Down | Left | Right | In | Out
+  end
+
+  type properties =
+    { id      : int
+    ; width   : int
+    ; height  : int
+    ; opacity : float
+    ; color   : Color.t option
+    ; href    : string
+    ; tag     : string
+    ; hover   : (unit, Dom_html.mouseEvent Js.t) Dom_html.event_listener option
+    ; click   : (unit, Dom_html.mouseEvent Js.t) Dom_html.event_listener option
+    }
+
+  type prim =
+    | Image of Image_style.t * int * int * string
+    | Container of Position.t * t
+    | Flow of Direction.t * t array
+    | Spacer
+    | Raw_HTML
+(*     | Custom *)
+  and t = { props : properties; element : prim }
+
+  let new_element width height element =
+    let props =
+      { id = guid ()
+      ; width; height
+      ; opacity = 1.
+      ; color = None
+      ; href = ""; tag = ""
+      ; hover = None; click = None
+      }
+    in
+    {props; element}
+
+  let spacer w h = new_element w h Spacer
+
+  let empty = spacer 0 0
+
+  let width e = e.props.width
+
+  let size e = (e.props.width, e.props.height)
+
+  let with_width new_width {props; element} =
+    let props' = match element with
+      | Image _ w h _ -> {prop with height = r
+
+
 end
 
 module Form = struct
@@ -94,6 +167,7 @@ module Form = struct
     | Shape of (Line_style.t, Fill_style.t) Either.t * Shape.t
     | Image of int * int * (int * int) * string
     | Group of Transform.t * t array
+(*     | Element of Element.t *)
   and t = 
     { theta : float
     ; scale : float
@@ -201,7 +275,11 @@ module Render = struct
     ctx##strokeStyle <- Js.string (render_color style.Line_style.color);
     line ctx style path closed
 
-  let texture redo ctx src = (* TODO *) ()
+  let texture redo ctx src =
+    let img = Dom_html.(createImg document) in
+    img##src <- Js.string src;
+    img##onload <- Dom_html.handler redo;
+    ctx##createPattern(img, Js.string "repeat")
 
   let gradient (ctx : canvas_ctx) grad =
     let g, stops = match grad with
@@ -214,7 +292,42 @@ module Render = struct
     g
 
   let draw_shape redo ctx style path =
-    trace ctx path false
+    trace ctx path false (* TODO: Idk about false here *);
+    Fill_style.(match style with
+      | Solid color -> ctx##fillStyle          <- Js.string (render_color color)
+      | Texture url -> ctx##fillStyle_pattern  <- texture redo ctx url
+      | Grad g      -> ctx##fillStyle_gradient <- gradient ctx g);
+    ctx##scale(1., -1.);
+    ctx##fill()
+
+  let draw_image redo (ctx : canvas_ctx) (w, h, (src_x, src_y), url) =
+    let img = Dom_html.(createImg document) in
+    img##onload <- Dom_html.handler redo;
+    img##src    <- Js.string url;
+    let src_x = float_of_int src_x in let src_y = float_of_int src_y in
+    let w = float_of_int w in let h = float_of_int h in
+    let dest_x = -.w /. 2. in let dest_y = -.h /. 2. in
+    ctx##scale(1., -1.);
+    ctx##drawImage_full(img, src_x, src_y, w, h, dest_x, dest_y, w, h)
+
+  let transform (ctx : canvas_ctx) {Transform.translation=(x,y); matrix=(a,b,c,d)} =
+    ctx##transform(a, b, c, d, x, y)
+
+  let rec render_form redo (ctx : canvas_ctx) {Form.x;y;theta;scale;alpha;form} =
+    ctx##save();
+      if x <> 0. || y <> 0. then ctx##translate(x, y);
+      if theta <> 0. then ctx##rotate(theta);
+      if scale <> 1. then ctx##scale(scale, scale);
+      if alpha <> 1. then ctx##globalAlpha <- Js.to_float (ctx##globalAlpha) *. alpha;
+      ctx##beginPath();
+      Form.(match form with
+        | Path (style, path)       -> draw_line ctx style path false
+        | Image (w, h, pos, url)   -> draw_image redo ctx (w, h, pos, url)
+        | Shape (InR style, shape) -> draw_shape redo ctx style shape
+        | Shape (InL style, shape) -> draw_line ctx style shape true
+        | Group (trans, fs)        ->
+          (transform ctx trans; Array.iter ~f:(render_form redo ctx) fs));
+    ctx##restore()
 
 end
 
