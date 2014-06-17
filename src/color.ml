@@ -6,7 +6,7 @@ let of_rgb ?(alpha=1.0) r g b = {r; g; b; alpha}
 let random () = 
   { r = Random.int 256; g = Random.int 256; b = Random.int 256; alpha = 1.0 }
 
-let render {r; g; b; alpha} =
+let to_css_string {r; g; b; alpha} =
   Printf.sprintf "rgba(%d,%d,%d,%f)" r g b alpha
 
 let white = { r = 255; g = 255; b = 255; alpha = 1.0 }

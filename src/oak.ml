@@ -39,7 +39,7 @@ module Line_style = struct
 
   let dashed color = { default with color; dashing = [|8; 4|] }
 
-  let dotted color = { default with color; dashing = [|3; 3|] }
+  let dotted color = {default with color; dashing = [|3; 3|] }
 end
 
 module Path = struct
@@ -88,77 +88,6 @@ module Transform = struct
     { translation = (0., 0.)
     ; matrix = (1., 0., 0., 1.)
     }
-end
-
-module Element = struct
-
-  let guid = let x = ref 0 in (fun () -> (incr x; !x))
-
-  module Image_style = struct
-    type t = Plain | Fitted | Cropped of int * int | Tiled
-  end
-
-  module Position = struct
-    type pos = Absolute of int | Relative of float
-
-    type t =
-      { horizontal : [`P | `Z | `N]
-      ; vertical   : [`P | `Z | `N]
-      ; x : pos
-      ; y : pos
-      }
-  end
-
-  module Direction = struct
-    type t = Up | Down | Left | Right | In | Out
-  end
-
-  type properties =
-    { id      : int
-    ; width   : int
-    ; height  : int
-    ; opacity : float
-    ; color   : Color.t option
-    ; href    : string
-    ; tag     : string
-    ; hover   : (unit, Dom_html.mouseEvent Js.t) Dom_html.event_listener option
-    ; click   : (unit, Dom_html.mouseEvent Js.t) Dom_html.event_listener option
-    }
-
-  type prim =
-    | Image of Image_style.t * int * int * string
-    | Container of Position.t * t
-    | Flow of Direction.t * t array
-    | Spacer
-    | Raw_HTML
-(*     | Custom *)
-  and t = { props : properties; element : prim }
-
-  let new_element width height element =
-    let props =
-      { id = guid ()
-      ; width; height
-      ; opacity = 1.
-      ; color = None
-      ; href = ""; tag = ""
-      ; hover = None; click = None
-      }
-    in
-    {props; element}
-
-  let spacer w h = new_element w h Spacer
-
-  let empty = spacer 0 0
-
-  let width e = e.props.width
-
-  let size e = (e.props.width, e.props.height)
-
-  let with_width new_width {props; element} =
-    let props' = match element with
-      | Image _ w h _ -> {prop with height = r
-
-
 end
 
 module Form = struct
@@ -248,19 +177,18 @@ module Render = struct
           let rec loop2 segment_length remaining (dx, dy) draw =
             failwith ""
           in
-          loop2 () (sqrt (dx *. dx +. dy *. dy))
+          failwith ""
+(*           loop2 () (sqrt (dx *. dx +. dy *. dy)) *)
       in
       ctx##moveTo(x0, y0);
-      loop (Array.length path - 2)
+      failwith ""
+(*       loop (Array.length path - 2) *)
 
   let line ctx style path closed =
     if Array.length style.Line_style.dashing = 0 then trace ctx path closed
     else custom_line_help ctx style path;
     ctx##scale(1., -1.);
     ctx##stroke()
-
-  let render_color {Color.r; g; b; alpha} =
-    Printf.sprintf "rgba(%d,%d,%d,%f)" r g b alpha
 
   let draw_line =
     fun (ctx : canvas_ctx) style path closed ->
@@ -272,7 +200,7 @@ module Render = struct
     ctx##miterLimit <- (match style.Line_style.join with
       | `Sharp x -> x | _ -> 10.);
     (* TODO: Check this *)
-    ctx##strokeStyle <- Js.string (render_color style.Line_style.color);
+    ctx##strokeStyle <- Js.string (Color.to_css_string style.Line_style.color);
     line ctx style path closed
 
   let texture redo ctx src =
@@ -288,13 +216,13 @@ module Render = struct
       | Color.Gradient.Radial ((x, y), s, (a, b), t, colors) ->
         ctx##createRadialGradient(x, -.y, s, a, -.b, t), colors
     in
-    Array.iter stops ~f:(fun (x, c) -> g##addColorStop(x, Js.string (render_color c)));
+    Array.iter stops ~f:(fun (x, c) -> g##addColorStop(x, Js.string (Color.to_css_string c)));
     g
 
   let draw_shape redo ctx style path =
     trace ctx path false (* TODO: Idk about false here *);
     Fill_style.(match style with
-      | Solid color -> ctx##fillStyle          <- Js.string (render_color color)
+      | Solid color -> ctx##fillStyle          <- Js.string (Color.to_css_string color)
       | Texture url -> ctx##fillStyle_pattern  <- texture redo ctx url
       | Grad g      -> ctx##fillStyle_gradient <- gradient ctx g);
     ctx##scale(1., -1.);

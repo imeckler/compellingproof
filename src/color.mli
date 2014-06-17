@@ -12,6 +12,8 @@ val green : t
 val blue  : t
 val none  : t
 
+val to_css_string : t -> string
+
 module Gradient : sig
   type t =
     | Linear of (float * float) * (float * float) * (float * color) array
