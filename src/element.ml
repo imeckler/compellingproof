@@ -271,11 +271,11 @@ end = struct
     method style_ : oak_style_declaration Js.t Js.prop
   end
 
-  let new_element tag =
+  let new_element tag : oak_element Js.t =
     let e = Dom_html.document##createElement(Js.string tag) in
     (e##style)##padding <- Js.string "0";
     (e##style)##margin  <- Js.string "0";
-    e
+    Obj.magic e
   ;;
 
   let add_hover (e : oak_element Js.t) handler =
@@ -407,7 +407,7 @@ end = struct
       Js.Unsafe.set (div##style) (Js.string "backgroundSize") (Js.string "cover");
       div
     in
-    let cropped_image (x, y) img_w img_h props_w props_h url =
+    let cropped_image x y img_w img_h props_w props_h url =
       let e = new_element "div" in
       (e##style)##overflow <- Js.string "hidden";
       let img : Dom_html.imageElement Js.t = Obj.magic (new_element "img") in
@@ -428,14 +428,31 @@ end = struct
       Dom.appendChild e img;
       e
     in
-    fun style w h url -> match style with
-      | 
-    
+    fun elt_width elt_height style img_w img_h url -> let open Image_style in match style with
+      | Plain          -> Obj.magic (plain_image url)
+      | Fitted         -> fitted_image elt_width elt_height url
+      | Tiled          -> tiled_image url
+      | Cropped (x, y) -> cropped_image x y img_w img_h elt_width elt_height url
+  ;;
 
-  let make_element {props; element} = match element with
-    | Image -> image props 
-
-  let render t = set_props t (make_element t)
+  let rec flow = let open Direction in
+    let should_reverse = function Up | Left | In -> true | _ -> false in
+    let go_down e  = e in
+    let go_out e   = (e##style)##position <- Js.string "absolute"; e in
+    let go_right e = (e##style)##cssFloat <- Js.string "left"; e in
+    fun dir ts ->
+      let container = new_element "div" in
+      (match dir with Out -> (container##style_)##pointerEvents <- Js.string "none" | _ -> ());
+      let go = match dir with
+        | Up   | Down  -> go_down
+        | Left | Right -> go_right
+        | In   | Out   -> go_out
+      in
+      container
+  and make_element {props; element} = match element with
+    | Image (style, w, h, url) -> image props.width props.height style w h url
+    | Flow (dir, ts)           -> flow dir ts
+  and render t = set_props t (make_element t)
 
   let unsafe_opt_value (x : 'a Js.opt) : 'a = Obj.magic x
 
