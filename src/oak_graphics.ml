@@ -39,9 +39,8 @@ type properties =
 type basic_form =
   | Path of Line_style.t * Path.t
   | Shape of (Line_style.t, Fill_style.t) Either.t * Shape.t
-  | Image of int * int * (int * int) * string
+  | Image of int * int * (int * int) * Image.t (* TODO: Let's see how this works *)
   | Group of Transform.t * form array
-  | Element of element
 
 and form = 
   { theta : float
@@ -62,6 +61,8 @@ and basic_element =
 
 and element = { props : properties; element : basic_element }
 
+let round x : int =
+  Js.Unsafe.(meth_call (variable "Math") "round" [|inject (Js.number_of_float x)|])
 
 module Form = struct
   type t = form
@@ -79,7 +80,7 @@ module Form = struct
 
   let filled color shape = fill (Fill_style.Solid color) shape
 
-  let textured url shape = fill (Fill_style.Texture url) shape
+  let textured img shape = fill (Fill_style.Texture img) shape
 
   let gradient grad shape = fill (Fill_style.Grad grad) shape
 
@@ -108,6 +109,9 @@ module Form = struct
   let collage = Oak_element.collage
 
 end
+
+(* TODO: Gonna shelf Element for now to get Form done. Perhaps I'll return
+ * to it someday *)
 module Element = struct
   let guid = let x = ref 0 in (fun () -> (incr x; !x))
 
@@ -163,9 +167,6 @@ module Element = struct
   let height e = e.props.height
 
   let size e = (e.props.width, e.props.height)
-
-  let round x : int =
-    Js.Unsafe.(meth_call (variable "Math") "round" [|inject (Js.number_of_float x)|])
 
   let with_width new_width {props; element} =
     let props' = match element with
@@ -224,7 +225,7 @@ module Element = struct
 
 end
 
-module rec Render_form : sig end = struct
+module Render_form = struct
   type canvas_ctx = Dom_html.canvasRenderingContext2D Js.t
 
   let trace (ctx : canvas_ctx)  (path : Path.t) closed =
@@ -281,11 +282,9 @@ module rec Render_form : sig end = struct
     line ctx style path closed
   ;;
 
-  let texture redo ctx src =
-    let img = Dom_html.(createImg document) in
-    img##src <- Js.string src;
-    img##onload <- Dom_html.handler redo;
+  let texture ctx img =
     ctx##createPattern(img, Js.string "repeat")
+  ;;
 
   let gradient (ctx : canvas_ctx) grad =
     let g, stops = match grad with
@@ -298,23 +297,20 @@ module rec Render_form : sig end = struct
     g
   ;;
 
-  let draw_shape redo ctx style path =
+  let draw_shape ctx style path =
     trace ctx path false (* TODO: Idk about false here *);
     Fill_style.(match style with
       | Solid color -> ctx##fillStyle          <- Js.string (Color.to_css_string color)
-      | Texture url -> ctx##fillStyle_pattern  <- texture redo ctx url
+      | Texture img -> ctx##fillStyle_pattern  <- texture ctx img
       | Grad g      -> ctx##fillStyle_gradient <- gradient ctx g);
     ctx##scale(1., -1.);
     ctx##fill()
   ;;
 
-  let draw_image redo ctx (w, h, (src_x, src_y), url) =
+  let draw_image ctx (w, h, (src_x, src_y), img) =
     let src_x = float_of_int src_x in let src_y = float_of_int src_y in
     let w = float_of_int w in let h = float_of_int h in
     let dest_x = -.w /. 2. in let dest_y = -.h /. 2. in
-    let img = Dom_html.(createImg document) in
-    img##onload <- Dom_html.handler redo;
-    img##src    <- Js.string url;
     ctx##scale(1., -1.);
     ctx##drawImage_full(img, src_x, src_y, w, h, dest_x, dest_y, w, h)
   ;;
@@ -323,7 +319,18 @@ module rec Render_form : sig end = struct
     ctx##transform(a, b, c, d, x, y)
   ;;
 
-  let rec render_form redo (ctx : canvas_ctx) {x;y;theta;scale;alpha;form} =
+  let make_canvas w h =
+    let canvas = Dom_html.(createCanvas document) in
+    (canvas##style)##width    <- Js.string (Printf.sprintf "%dpx" w);
+    (canvas##style)##height   <- Js.string (Printf.sprintf "%dpx" h);
+    (canvas##style)##display  <- Js.string "block";
+    (canvas##style)##position <- Js.string "absolute";
+    canvas##width  <- w;
+    canvas##height <- h;
+    canvas
+  ;;
+
+  let rec render_form (ctx : canvas_ctx) {x;y;theta;scale;alpha;form} =
     ctx##save();
       if x <> 0. || y <> 0. then ctx##translate(x, y);
       if theta <> 0. then ctx##rotate(theta);
@@ -332,16 +339,26 @@ module rec Render_form : sig end = struct
       ctx##beginPath();
       Form.(match form with
         | Path (style, path)       -> draw_line ctx style path false
-        | Image (w, h, pos, url)   -> draw_image redo ctx (w, h, pos, url)
-        | Shape (InR style, shape) -> draw_shape redo ctx style shape
+        | Image (w, h, pos, img)   -> draw_image ctx (w, h, pos, img)
+        | Shape (InR style, shape) -> draw_shape ctx style shape
         | Shape (InL style, shape) -> draw_line ctx style shape true
         | Group (trans, fs)        ->
-          (transform ctx trans; Array.iter ~f:(render_form redo ctx) fs));
+          (transform ctx trans; Array.iter ~f:(render_form ctx) fs));
     ctx##restore()
   ;;
+
+  let draw ~width ~height div form_b =
+    let canvas = make_canvas width height in
+    let ctx = canvas##getContext(Dom_html._2d_) in
+    Dom.appendChild div canvas;
+    render_form ctx (Frp.Behavior.peek form_b);
+    Frp.Stream.iter (Frp.Behavior.changes form_b)
+      ~f:(fun form -> render_form ctx form)
+  ;;
+
 end
 
-and Render_element : sig end = struct
+module Render_element = struct
   let new_element tag : oak_element Js.t =
     let e = Dom_html.document##createElement(Js.string tag) in
     (e##style)##padding <- Js.string "0";
@@ -588,8 +605,8 @@ and Render_element : sig end = struct
     | Container (pos, t)        -> container pos t
     | Spacer                    -> new_element "div"
     | Raw_HTML (html, align)    -> raw_html html align
-    | Collage (w, h, forms)     -> 
-  and render (t : t) : oak_element Js.t = let e = make_element t in (set_props t e; e)
+(*     | Collage (w, h, forms)     ->  *)
+  and render t : oak_element Js.t = let e = make_element t in (set_props t e; e)
 
   let unsafe_opt_value (x : 'a Js.opt) : 'a = Obj.magic x
 
@@ -648,11 +665,6 @@ and Render_element : sig end = struct
           update child c_t n_t;
           set_pos n_pos n_t child;
           `Continue)
-      | Custom c_custom, Custom n_custom ->
-          if c_custom.kind = n_custom.kind
-          then n_custom.update 
-          else replace_with_next node next
-
       in ()
     end
 

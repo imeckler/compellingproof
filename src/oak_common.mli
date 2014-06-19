@@ -6,10 +6,15 @@ module Line_join : sig
   type t = [`Smooth | `Sharp of float | `Clipped]
 end
 
+module Image : sig
+  type t = Dom_html.imageElement Js.t
+  val load : string -> t Frp.Stream.t
+end
+
 module Fill_style : sig
   type t =
     | Solid of Color.t
-    | Texture of string
+    | Texture of Image.t
     | Grad of Color.Gradient.t
 end
 

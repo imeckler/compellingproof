@@ -9,11 +9,23 @@ module Line_join = struct
   type t = [`Smooth | `Sharp of float | `Clipped]
 end
 
+module Image = struct
+  type t = Dom_html.imageElement Js.t
+
+  let load url =
+    let (s, trigger) = Frp.Stream.create' () in
+    let img = Dom_html.(createImg document) in
+    img##onload <- Dom.handler (fun _ -> trigger img; Js._false);
+    img##src    <- Js.string url;
+    s
+  ;;
+end
+
 module Fill_style = struct
   type t =
-    | Solid of Color.t
-    | Texture of string
-    | Grad of Color.Gradient.t
+    | Solid   of Color.t
+    | Texture of Image.t
+    | Grad    of Color.Gradient.t
 end
 
 module Line_style = struct
