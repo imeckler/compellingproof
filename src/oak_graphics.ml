@@ -105,9 +105,6 @@ module Form = struct
   let rotate t f = { f with theta = f.theta +. t }
 
   let alpha a f = { f with alpha = a }
-
-  let collage = Oak_element.collage
-
 end
 
 (* TODO: Gonna shelf Element for now to get Form done. Perhaps I'll return
@@ -352,6 +349,7 @@ module Render_form = struct
     let ctx = canvas##getContext(Dom_html._2d_) in
     Dom.appendChild div canvas;
     render_form ctx (Frp.Behavior.peek form_b);
+    println "Oak_graphics.draw";
     Frp.Stream.iter (Frp.Behavior.changes form_b)
       ~f:(fun form -> render_form ctx form)
   ;;

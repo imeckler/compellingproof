@@ -83,6 +83,9 @@ val on : t -> string -> (Dom_html.event Js.t -> unit) -> unit
 
 val keys : Event.Key.t array Frp.Behavior.t
 
+(* A vector corresponding to which arrow keys are being pressed down. *)
+val arrows : (int * int) Frp.Behavior.t
+
 val mouse_pos : (int * int) Frp.Stream.t
 
 (* Mouse position relative to the upper left of the given element *)

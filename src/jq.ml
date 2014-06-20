@@ -170,12 +170,15 @@ let setup_event_handlers t hs =
 
 let key_stream =
   Frp.Stream.create ~start:(fun trigger ->
+    println "key_stream.start";
     let which e      = Js.Unsafe.(get e (Js.string "which")) in
     setup_event_handlers body [|
       "keydown", (fun e -> e##preventDefault(); trigger (`Down (which e)));
       "keyup"  , (fun e -> e##preventDefault(); trigger (`Up (which e)));
     |])
   ()
+
+let () = set_global "key_stream" key_stream
 
 let keys =
   let pressed = Inttbl.create () in
@@ -185,7 +188,16 @@ let keys =
       | `Up n -> Inttbl.remove pressed n
     end;
     Inttbl.keys pressed)
-    
+
+let arrows = 
+  let bool_to_int = function
+    | true  -> 1
+    | false -> 0
+  in
+  Frp.Behavior.map keys ~f:(fun ks -> let open Event.Key in
+  ( bool_to_int (Array.mem ks (of_code 39)) - bool_to_int (Array.mem ks (of_code 37))
+  , bool_to_int (Array.mem ks (of_code 38)) - bool_to_int (Array.mem ks (of_code 40))))
+
 let mouse_pos =
   Frp.Stream.create () ~start:(fun trigger ->
     let handler e =
