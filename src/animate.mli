@@ -4,6 +4,8 @@ module Sequence : sig
   type finished
   type unfinished
 
+  val run : init:'a -> (finished, 'a) t -> 'a Frp.Behavior.t
+
   val for_
     : float
     -> ('a -> float -> 'a)
@@ -22,14 +24,11 @@ module Sequence : sig
 
   val stay_forever : (finished, 'a) t
 
-  val run : init:'a -> (finished, 'a) t -> 'a Frp.Behavior.t
-
   val quadratic
     : float
     -> final:float
     -> (unfinished, float) t
 
   val jump_to : 'a -> (unfinished, 'a) t
-
 end
 
