@@ -23,12 +23,12 @@ Executable example
   CompiledObject: byte
   BuildDepends: compelling_proof, corejs, frp, js_of_ocaml, js_of_ocaml.syntax
 
-Executable mario
+Executable toad
   Path: src/examples
-  MainIs: mario.ml
+  MainIs: toad.ml
   Install: false
   CompiledObject: byte
   BuildDepends: compelling_proof, corejs, frp, js_of_ocaml, js_of_ocaml.syntax
 
-PostBuildCommand: js_of_ocaml mario.byte
+PostBuildCommand: js_of_ocaml toad.byte
 

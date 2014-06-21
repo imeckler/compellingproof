@@ -310,10 +310,12 @@ module Form = struct
     ;;
 
     let draw ~width ~height div form_b =
+      println "Oak.Form.Render_form.draw";
       let canvas = make_canvas width height in
       let ctx = canvas##getContext(Dom_html._2d_) in
       Dom.appendChild div canvas;
       render_form ctx (Frp.Behavior.peek form_b);
+      println "Gonna call iter";
       Frp.Stream.iter (Frp.Behavior.changes form_b)
         ~f:(fun form -> render_form ctx form)
     ;;
