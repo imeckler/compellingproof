@@ -349,7 +349,6 @@ module Render_form = struct
     let ctx = canvas##getContext(Dom_html._2d_) in
     Dom.appendChild div canvas;
     render_form ctx (Frp.Behavior.peek form_b);
-    println "Oak_graphics.draw";
     Frp.Stream.iter (Frp.Behavior.changes form_b)
       ~f:(fun form -> render_form ctx form)
   ;;

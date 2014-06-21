@@ -170,7 +170,6 @@ let setup_event_handlers t hs =
 
 let key_stream =
   Frp.Stream.create ~start:(fun trigger ->
-    println "key_stream.start";
     let which e      = Js.Unsafe.(get e (Js.string "which")) in
     setup_event_handlers body [|
       "keydown", (fun e -> e##preventDefault(); trigger (`Down (which e)));
