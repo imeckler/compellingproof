@@ -28,6 +28,8 @@ let fetch_img verb = Image.load (
 
 (* let right_img = fetch_img "right" *)
 
+(* Sprite is 16 x 32 *)
+
 let w, h = 600, 400
 let w', h' = float_of_int w, float_of_int h
 
