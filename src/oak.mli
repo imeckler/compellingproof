@@ -106,9 +106,9 @@ module Form : sig
 
   val alpha : float -> t -> t
 
-  val group : t array -> t
+  val group : [`Array of t array | `Iterator of t Iterator.t] -> t
 
-  val transform_group : Transform.t -> t array -> t
+  val transform_group : Transform.t -> [`Array of t array | `Iterator of t Iterator.t] -> t
 
   val draw
     : width:int -> height:int
@@ -116,3 +116,4 @@ module Form : sig
     -> t Frp.Behavior.t
     -> Frp.Subscription.t
 end
+

@@ -19,6 +19,7 @@ end = struct
     |> Frp.Stream.zip_many ~f
     |> Frp.Stream.join
 
+  (* TODO: Debug this. It appears to fail in a weird way. *)
   let (+>) t url = Frp.Stream.Infix.(t <*> Image.load url)
 
   let run = Frp.Stream.join
@@ -55,7 +56,7 @@ module Line_style = struct
 
   let dashed color = { default with color; dashing = [|8; 4|] }
 
-  let dotted color = {default with color; dashing = [|3; 3|] }
+  let dotted color = { default with color; dashing = [|3; 3|] }
 end
 
 module Fill_style = struct
@@ -98,7 +99,6 @@ module Shape = struct
     let t = 2. *. pi /. float_of_int n in
     let f i = let i = float_of_int i in (r *. cos (t *. i), r *. sin (t *. i)) in
     Array.init n ~f
-
 end
 
 module Transform = struct
@@ -134,7 +134,7 @@ module Form = struct
     | Path of Line_style.t * Path.t
     | Shape of (Line_style.t, Fill_style.t) Either.t * Shape.t
     | Image of int * int * (int * int) * Image.t (* TODO: Let's see how this works *)
-    | Group of Transform.t * t array
+    | Group of Transform.t * [`Array of t array | `Iterator of t Iterator.t ]
 
   and t = 
     { theta : float
@@ -227,7 +227,7 @@ module Form = struct
     let line ctx style path closed =
       if Array.length style.Line_style.dashing = 0 then trace ctx path closed
       else custom_line_help ctx style path;
-      ctx##scale(1., -1.);
+(*       ctx##scale(1., -1.); *)
       ctx##stroke()
     ;;
 
@@ -265,16 +265,16 @@ module Form = struct
         | Solid color -> ctx##fillStyle          <- Js.string (Color.to_css_string color)
         | Texture img -> ctx##fillStyle_pattern  <- texture ctx img
         | Grad g      -> ctx##fillStyle_gradient <- gradient ctx g);
-      ctx##scale(1., -1.);
+(*       ctx##scale(1., -1.); *)
       ctx##fill()
     ;;
 
     let draw_image ctx (w, h, (src_x, src_y), img) =
       let src_x = float_of_int src_x in let src_y = float_of_int src_y in
       let w = float_of_int w in let h = float_of_int h in
-      let dest_x = -.w /. 2. in let dest_y = -.h /. 2. in
-      ctx##scale(1., -1.);
-      ctx##drawImage_full(img, src_x, src_y, w, h, dest_x, dest_y, w, h)
+(*       let dest_x = -.w /. 2. in let dest_y = -.h /. 2. in *)
+(*       ctx##scale(1., -1.); *)
+      ctx##drawImage_full(img, src_x, src_y, w, h, 0., 0., w, h)
     ;;
 
     let transform (ctx : canvas_ctx) {Transform.translation=(x,y); matrix=(a,b,c,d)} =
@@ -304,12 +304,15 @@ module Form = struct
           | Image (w, h, pos, img)   -> draw_image ctx (w, h, pos, img)
           | Shape (InR style, shape) -> draw_shape ctx style shape
           | Shape (InL style, shape) -> draw_line ctx style shape true
-          | Group (trans, fs)        ->
-            (transform ctx trans; Array.iter ~f:(render_form ctx) fs));
+          | Group (trans, `Array fs) ->
+            (transform ctx trans; Array.iter ~f:(render_form ctx) fs)
+          | Group (trans, `Iterator fs) ->
+            (transform ctx trans; Iterator.iter ~f:(render_form ctx) fs));
       ctx##restore()
     ;;
 
     let draw ~width ~height div form_b =
+      let w, h = float_of_int width, float_of_int height in
       println "Oak.Form.Render_form.draw";
       let canvas = make_canvas width height in
       let ctx = canvas##getContext(Dom_html._2d_) in
@@ -317,7 +320,7 @@ module Form = struct
       render_form ctx (Frp.Behavior.peek form_b);
       println "Gonna call iter";
       Frp.Stream.iter (Frp.Behavior.changes form_b)
-        ~f:(fun form -> render_form ctx form)
+        ~f:(fun form -> ctx##clearRect(0.,0.,w,h); render_form ctx form)
     ;;
   end
 
