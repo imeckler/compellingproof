@@ -7,7 +7,7 @@ let square w h =
       ~width:(return side_len) ~height:(return side_len)
       (return ((w -. side_len) /. 2., (h -. side_len) /. 2.))
   in
-  let angle = let open Animate.Sequence in
+  let angle = let open Animate in
     cycle (quadratic 2000. ~final:360.)
     |> run ~init:0. |> Frp.Behavior.map ~f:Angle.of_degrees
   in

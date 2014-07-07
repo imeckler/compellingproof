@@ -33,7 +33,7 @@ let step m (t, dir) = physics t (walk dir (gravity t (jump dir m)))
 let w, h = 600, 400
 let w', h' = float_of_int w, float_of_int h
 
-let walk_anim = let open Animate.Sequence in
+let walk_anim = let open Animate in
   cycle (for_ 0.5 (fun _ _ -> Walk1) >> for_ 0.5 (fun _ _ -> Walk2))
   |> run ~init:Walk1
 

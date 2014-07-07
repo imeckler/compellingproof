@@ -1,57 +1,16 @@
 open Core
 
 module Point = struct
-(*   type 'a t = { x : 'a ; y : 'a } *)
-
-  type 'a t = 'a * 'a
+  include Point
 
   let render (x, y) = string_of_float x ^ "," ^ string_of_float y
 
   let render_many pts = String.concat_array ~sep:" " (Array.map pts ~f:render)
 end
 
-module Angle = struct
-  type t = float (* Internally we use degrees *)
-
-  let pi = 4. *. atan 1.
-
-  let to_degrees x = x
-
-  let to_radians = let c = (2. *. pi) /. 360. in fun x -> c *. x
-
-  let of_degrees x = x
-
-  let of_radians = let c = 360. /. (2. *. pi) in fun x -> c *. x
-
-  let rotate ~about:(a, b) (x, y) angle =
-    let angle = to_radians angle in
-    let x', y' = x -. a, y -. b in
-    let x'' = (x' *. cos angle) -. (y' *. sin angle) in
-    let y'' = (x' *. sin angle) +. (y' *. cos angle) in
-    (x'' +. a, y'' +. b)
-
-  let about ~center:(cx, cy) (x, y) =
-    let a = of_radians (atan2 (cy -. y)  (x -. cx)) in
-    if a < 0. then 360. +. a else a
-
-  let cos x = cos (to_radians x)
-
-  let sin x = sin (to_radians x)
-
-  let acos x = of_radians (acos x)
-
-  let asin x = of_radians (asin x)
-
-  let atan x = of_radians (atan x)
-
-  let (+) = (+.)
-  let (-) = (-.)
-  let ( * ) = ( *. )
-end
-
 module Transform = struct
   type t =
-    | Matrix    of float * float * float * float * float * float
+    | Affine    of Affine.t
     | Translate of float * float
     | Scale     of float * float
     | Rotate    of Angle.t * float Point.t
@@ -59,17 +18,25 @@ module Transform = struct
     | Skew_y    of float
 
   let translate (x, y) = Translate (x, y)
-  let scale x y = Scale (x, y)
+
+  let scale ?about sx sy = match about with
+    | None -> Scale (sx, sy)
+    | Some point ->
+        Affine (let open Affine in
+          compose {identity with translation = point} (
+            compose {identity with matrix = (sx, 0., 0., sy)} (
+              ({identity with translation = Vector.scale (-1.) point}))))
+
   let rotate ?(about=(0., 0.)) angle = Rotate (angle, about)
   let skew_x c = Skew_x c
   let skew_y c = Skew_y c
 
   let render = function
-    | Matrix (a, b, c, d, e, f) ->
+    | Affine {Affine.matrix=(a, b, c, d); translation = (e, f)} ->
         Printf.sprintf "matrix(%f,%f,%f,%f,%f,%f)" a b c d e f
     | Translate (x, y)   -> Printf.sprintf "translate(%f %f)" x y
     | Scale (x, y)       -> Printf.sprintf "scale(%f %f)" x y
-    | Rotate (a, (x, y)) -> Printf.sprintf "rotate(%f %f %f)" a x y
+    | Rotate (a, (x, y)) -> Printf.sprintf "rotate(%f %f %f)" (Angle.to_degrees a) x y
     | Skew_x s           -> Printf.sprintf "skewX(%f)" s
     | Skew_y s           -> Printf.sprintf "skewY(%f)" s
 
@@ -170,7 +137,7 @@ module Segment = struct
     | Arc (a1, a2, l, r) -> let open Point in
         let flag = large_arc_flag_num l in
         let ctr = (-. Angle.cos a1 *. r, Angle.sin a1 *. r) in
-        let (x, y) = Angle.(rotate ~about:ctr (0., 0.) (a2 -. a1)) in
+        let (x, y) = Angle.(rotate ~about:ctr (0., 0.) (a2 - a1)) in
         Printf.sprintf "a%f,%f 0 %d,1 %f,%f" r r flag x y
 
   let render_many ts = String.concat_array ~sep:" " (Array.map ~f:render ts)
@@ -253,6 +220,8 @@ type t =
   (* TODO: Think about if we should pass x and y attributes here too *)
   | Image     of string Frp.Behavior.t * int Frp.Behavior.t * int Frp.Behavior.t
 
+  | Clip      of t * t (* clippedDrawing * clipPath *)
+
   | Dynamic   of t Frp.Behavior.t
 
   | Svg       of Jq.Dom.t
@@ -297,7 +266,13 @@ let translate t move =
 
 let image ~width ~height url = Image (url, width, height)
 
+let clip ~by t = Clip (t, by)
+
+let crop ~width ~height corner t = clip t ~by:(rect ~width ~height corner)
+
 let pictures ts = Pictures ts
+
+let empty = pictures [||]
 
 let dynamic tb = Dynamic tb
 
@@ -326,9 +301,53 @@ let svg_file url =
          value_map (str_opt >>= parse_svg_string) ~default:(pictures [||])
           ~f:(fun e -> Svg (Obj.magic e)))
   in
+  (* TODO: Think about whether we should be forcing "pulling" as here, or
+   * force pushing (i.e., allow an argument to Stream.create which indicates that
+   * updates should be pushed to off_listeners as well *)
+  Frp.Behavior.force_updates drawing_beh;
   req##_open(Js.string "GET", Js.string url, Js._true);
   req##send(Js.Opt.return (Js.string ""));
   dynamic drawing_beh
+
+module Cache : sig
+(*   val load : string -> [`Ok | `Error] Frp.Stream.t *)
+  val load : string -> unit
+
+  val get : string -> t option
+
+  val get_exn : string -> t
+end = struct
+  let cache = Stringtbl.create ()
+
+  let load url =
+    let drawing = svg_file url in
+    Stringtbl.add cache ~key:url ~data:drawing
+
+  let get url = Stringtbl.find cache url
+
+  let get_exn url =
+    match get url with
+    | Some x -> x
+    | _      -> failwith (Printf.sprintf "Draw.Cache.get_exn: %s not found" url)
+end
+
+let rec to_string = function
+  | Circle _             -> "Circle"
+  | Transform (t, trans) -> Printf.sprintf "Transform(%s)" (to_string t)
+  | Polygon _            -> "Polygon"
+  | Path _               -> "Path"
+  | Path_str _           -> "Path_str"
+  | Text _               -> "Text"
+  | Rect _               -> "Rect"
+  | Pictures ts          -> Printf.sprintf "Pictures(%s)" (String.concat_array (Array.map ~f:to_string ts))
+  | Image _              -> "Image"
+  | Dynamic t            -> Printf.sprintf "Dynamic (%s)" (to_string (Frp.Behavior.peek t))
+  | Clip (t, by)         -> Printf.sprintf "Clip(%s, %s)" (to_string t) (to_string by)
+  | Svg _                -> Printf.sprintf "Svg"
+
+let create_uid =
+  let uid = ref 0 in
+  fun () -> incr uid; !uid
 
 let rec render =
   let x_beh = Frp.Behavior.map ~f:(fun (x, _) -> string_of_float x) in
@@ -389,11 +408,13 @@ let rec render =
 
   | Transform (t, trans) ->
     let (elt, sub) = render t in
-    let trans_sub  = Jq.Dom.sink_attr elt
+    let container  = Jq.Dom.svg_node "g" [||] in
+    Jq.Dom.append container elt;
+    let trans_sub  = Jq.Dom.sink_attr container
       ~name: "transform"
       ~value:(Frp.Behavior.map ~f:Transform.render_many trans)
     in
-    (elt, Frp.Subscription.merge trans_sub sub)
+    (container, Frp.Subscription.merge trans_sub sub)
 
   | Path_str ({name}, props, mask, path_strb) ->
     let elt = Jq.Dom.svg_node "path" [||] in
@@ -461,6 +482,19 @@ let rec render =
     in
     (elt, sub)
 
+  | Clip (t, by) ->
+    let clip_id              = Printf.sprintf "clip%d" (create_uid ()) in
+    let container            = Jq.Dom.svg_node "g" [||] in
+    let sub_container        = Jq.Dom.svg_node "g" [|"clip-path", Printf.sprintf "url(#%s)" clip_id|] in
+    let clip_holder          = Jq.Dom.svg_node "clipPath" [|"id", clip_id|] in
+    let (clip_elt, clip_sub) = render by in
+    let (t_elt, t_sub)       = render t in
+    Jq.Dom.append clip_holder clip_elt;
+    Jq.Dom.append container clip_holder;
+    Jq.Dom.append sub_container t_elt;
+    Jq.Dom.append container sub_container;
+    (container, Frp.Subscription.merge clip_sub t_sub)
+
   | Pictures pics ->
     let elts = Array.map ~f:render pics in
     let elt = Jq.Dom.svg_node "g" [||] in 
@@ -477,8 +511,7 @@ let rec render =
       Jq.Dom.empty container;
       let (elt, sub) = render t in
       Jq.Dom.append container elt;
-      last_sub := sub;
-    )
+      last_sub := sub)
     in
     (container, Subscription.(merge dyn_sub (make (fun () -> cancel !last_sub))))
 

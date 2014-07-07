@@ -1,43 +1,6 @@
-module Point : sig
-  type 'a t = 'a * 'a
-end
-
-module Angle : sig
-  type t
-
-  val rotate
-    : about:float Point.t
-    -> float Point.t
-    -> t
-    -> float Point.t
-
-  val pi : float
-
-  val cos : t -> float
-  val sin : t -> float
-
-  val acos : float -> t
-  val asin : float -> t
-  val atan : float -> t
-
-  val (+) : t -> t -> t
-  val (-) : t -> t -> t
-  val ( * ) : float -> t -> t
-
-  val to_degrees : t -> float
-
-  val to_radians : t -> float
-
-  val of_degrees : float -> t
-
-  val of_radians : float -> t
-
-  val about : center:float Point.t -> float Point.t -> t
-end
-
 module Transform : sig
   type t =
-    | Matrix    of float * float * float * float * float * float
+    | Affine    of Affine.t
     | Translate of float * float
     | Scale     of float * float
     | Rotate    of Angle.t * float Point.t
@@ -45,7 +8,7 @@ module Transform : sig
     | Skew_y    of float
 
   val translate : float * float -> t
-  val scale : float -> float -> t
+  val scale : ?about:float Point.t -> float -> float -> t
   val rotate : ?about:float Point.t -> Angle.t -> t
   val skew_x : float -> t
   val skew_y : float -> t
@@ -153,12 +116,20 @@ val image
   -> string Frp.Behavior.t
   -> t
 
+val crop
+  : width:float Frp.Behavior.t
+  -> height:float Frp.Behavior.t
+  -> float Point.t Frp.Behavior.t
+  -> t
+  -> t
+
 val svg_file : string -> t
 
-(* Inject an already constructed node. This function does not check to
-   make sure the node is valid.
-*)
+(** The empty drawing *)
+val empty : t
 
+(** Inject an already constructed node. This function does not check to
+   make sure the node is valid. *)
 val svg : Jq.Dom.t -> t
 
 val transform : t -> Transform.t array Frp.Behavior.t -> t
@@ -168,6 +139,14 @@ val translate : t -> (float * float) Frp.Behavior.t -> t
 val pictures : t array -> t
 
 val dynamic : t Frp.Behavior.t -> t
+
+module Cache : sig
+  val load : string -> unit
+
+  val get : string -> t option
+  
+  val get_exn : string -> t
+end
 
 val render : t -> (Jq.Dom.t * Frp.Subscription.t)
 

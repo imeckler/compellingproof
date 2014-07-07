@@ -67,17 +67,6 @@ module Shape : sig
   val ngon : int -> float -> t
 end
 
-module Transform : sig
-  type t =
-    { translation : float * float
-    ; matrix      : float * float * float * float
-    }
-
-  val identity : t
-
-  val compose : t -> t -> t
-end
-
 module Form : sig
   type t
 
@@ -108,7 +97,7 @@ module Form : sig
 
   val group : [`Array of t array | `Iterator of t Iterator.t] -> t
 
-  val transform_group : Transform.t -> [`Array of t array | `Iterator of t Iterator.t] -> t
+  val transform_group : Affine.t -> [`Array of t array | `Iterator of t Iterator.t] -> t
 
   val draw
     : width:int -> height:int

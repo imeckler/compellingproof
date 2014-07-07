@@ -101,32 +101,6 @@ module Shape = struct
     Array.init n ~f
 end
 
-module Transform = struct
-  type t =
-    { translation : float * float
-    ; matrix      : float * float * float * float
-    }
-
-  let identity = 
-    { translation = (0., 0.)
-    ; matrix = (1., 0., 0., 1.)
-    }
-
-  let mul_matrix (a, b, c, d) (w, x, y, z) =
-    (a *. w +. b *. y, a *. x +. b *. z
-    ,c *. w +. d *. y, c *. x +. d *. z)
-
-  let apply_matrix (a, b, c, d) (x, y) = (a *. x +. b *. y, c *. x +. d *. y)
-
-  let add_vec (a, b) (c, d) = (a +. c, b +. d)
-
-  let compose t1 t2 =
-    { matrix = mul_matrix t1.matrix t2.matrix
-    ; translation = add_vec t1.translation (apply_matrix t1.matrix t2.translation)
-    }
-end
-
-
 module Form = struct
   open Either
 
@@ -134,7 +108,7 @@ module Form = struct
     | Path of Line_style.t * Path.t
     | Shape of (Line_style.t, Fill_style.t) Either.t * Shape.t
     | Image of int * int * (int * int) * Image.t (* TODO: Let's see how this works *)
-    | Group of Transform.t * [`Array of t array | `Iterator of t Iterator.t ]
+    | Group of Affine.t * [`Array of t array | `Iterator of t Iterator.t ]
 
   and t = 
     { theta : float
@@ -173,7 +147,7 @@ module Form = struct
 
   let transform_group trans fs = basic (Group (trans, fs))
 
-  let group fs = transform_group Transform.identity fs
+  let group fs = transform_group Affine.identity fs
 
   let move (x, y) f = { f with x = f.x +. x; y = f.y +. y }
 
@@ -277,7 +251,7 @@ module Form = struct
       ctx##drawImage_full(img, src_x, src_y, w, h, 0., 0., w, h)
     ;;
 
-    let transform (ctx : canvas_ctx) {Transform.translation=(x,y); matrix=(a,b,c,d)} =
+    let transform (ctx : canvas_ctx) {Affine.translation=(x,y); matrix=(a,b,c,d)} =
       ctx##transform(a, b, c, d, x, y)
     ;;
 
