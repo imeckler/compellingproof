@@ -13,29 +13,30 @@ type ('a, 'b) t
 
 (* Throws exception if the adjacency list references a vertex
  * which isn't given a value in the list *)
-val from_adjacency_lists : ('a * (int * 'b) list) list -> ('a, 'b) t
+val of_adjacency_lists : ('a * (int * 'b) list) list -> ('a, 'b) t
 
-val get : ('a, 'b) Node.t -> ('a, 'b) t -> 'a option
+val get : ('a, 'b) t -> ('a, 'b) Node.t -> 'a option
 
-val get_exn : ('a, 'b) Node.t -> ('a, 'b) t -> 'a
+val get_exn : ('a, 'b) t -> ('a, 'b) Node.t -> 'a
+
 
 (* All operations are externally pure. The unit argument is necessary to avoid
  * the value restriction *)
 val empty : unit -> ('a, 'b) t
 
-val add_node : 'a -> ('a, 'b) t -> (('a, 'b) Node.t * ('a, 'b) t)
+val add_node : ('a, 'b) t -> 'a -> (('a, 'b) Node.t * ('a, 'b) t)
 
-val add_nodes : 'a array -> ('a, 'b) t -> (('a, 'b) Node.t array * ('a, 'b) t)
+val add_nodes : ('a, 'b) t -> 'a array -> (('a, 'b) Node.t array * ('a, 'b) t)
 
-val change : ('a, 'b) Change.t array -> ('a, 'b) t -> ('a, 'b) t
+val change : ('a, 'b) t -> ('a, 'b) Change.t array -> ('a, 'b) t
 
-val successors : ('a, 'b) Node.t -> ('a, 'b) t -> (('a, 'b) Node.t * 'b) array option
+val successors : ('a, 'b) t -> ('a, 'b) Node.t -> (('a, 'b) Node.t * 'b) array option
 
-val successors_exn : ('a, 'b) Node.t -> ('a, 'b) t -> (('a, 'b) Node.t * 'b) array
+val successors_exn : ('a, 'b) t -> ('a, 'b) Node.t -> (('a, 'b) Node.t * 'b) array
 
-val predecessors : ('a, 'b) Node.t -> ('a, 'b) t -> (('a, 'b) Node.t * 'b) array option
+val predecessors : ('a, 'b) t -> ('a, 'b) Node.t -> (('a, 'b) Node.t * 'b) array option
 
-val predecessors_exn : ('a, 'b) Node.t -> ('a, 'b) t -> (('a, 'b) Node.t * 'b) array
+val predecessors_exn : ('a, 'b) t -> ('a, 'b) Node.t -> (('a, 'b) Node.t * 'b) array
 
 val nodes : ('a, 'b) t -> ('a, 'b) Node.t array
 
@@ -61,9 +62,65 @@ val iter_arcs : ('a, 'b) t -> f:(('a, 'b) Node.t -> ('a, 'b) Node.t -> 'b -> uni
 
 val length : ('a, 'b) t -> int
 
-(* Experimental interface *)
+type ('a, 'b) graph = ('a, 'b) t
 
-type ('a, 'b) gph = ('a, 'b) t
+module Mutable : sig
+  type ('a, 'b) t
+
+  val create : unit -> ('a, 'b) t
+
+  val of_adjacency_lists : ('a * (int * 'b) list) list -> ('a, 'b) t
+
+  val get : ('a, 'b) t -> ('a, 'b) Node.t -> 'a option
+
+  val get_exn : ('a, 'b) t -> ('a, 'b) Node.t -> 'a
+
+  val add_node : ('a, 'b) t -> 'a -> ('a, 'b) Node.t
+
+  val add_nodes : ('a, 'b) t -> 'a array -> ('a, 'b) Node.t array
+
+  val remove_node : ('a, 'b) t -> ('a, 'b) Node.t -> unit
+
+  val add_arc : ('a, 'b) t -> src:('a, 'b) Node.t -> dst:('a, 'b) Node.t -> 'b -> unit
+
+  val remove_arc : ('a, 'b) t -> src:('a, 'b) Node.t -> dst:('a, 'b) Node.t -> unit
+
+  val successors : ('a, 'b) t -> ('a, 'b) Node.t -> (('a, 'b) Node.t * 'b) array option
+
+  val successors_exn : ('a, 'b) t -> ('a, 'b) Node.t -> (('a, 'b) Node.t * 'b) array
+
+  val predecessors : ('a, 'b) t -> ('a, 'b) Node.t -> (('a, 'b) Node.t * 'b) array option
+
+  val predecessors_exn : ('a, 'b) t -> ('a, 'b) Node.t -> (('a, 'b) Node.t * 'b) array
+
+  val nodes : ('a, 'b) t -> ('a, 'b) Node.t array
+
+  val map_nodes : ('a, 'b) t -> f:('a -> 'c) -> ('c, 'b) t
+
+  val map_arcs : ('a, 'b) t -> f:('b -> 'c) -> ('a, 'c) t
+
+  val fold_nodes
+    : ('a, 'b) t
+    -> init:'accum
+    -> f:('accum -> ('a, 'b) Node.t -> 'a -> 'accum)
+    -> 'accum
+
+  val fold_arcs
+    : ('a, 'b) t
+    -> init:'accum
+    -> f:('accum -> ('a, 'b) Node.t -> ('a, 'b) Node.t -> 'b -> 'accum)
+    -> 'accum
+
+  val iter_nodes : ('a, 'b) t -> f:(('a, 'b) Node.t -> 'a -> unit) -> unit
+
+  val iter_arcs : ('a, 'b) t -> f:(('a, 'b) Node.t -> ('a, 'b) Node.t -> 'b -> unit) -> unit
+
+  val length : ('a, 'b) t -> int
+
+  val freeze : ('a, 'b) t -> ('a, 'b) graph
+end
+
+(* Experimental interface *)
 
 module Builder : sig
   type ('k, 'a, 'b) t
@@ -85,7 +142,7 @@ module Builder : sig
 
   val replicate_ignore : int -> ('k, 'a, 'b) t -> (unit, 'a, 'b) t
 
-  val run : ('a, 'b) gph -> ('k, 'a, 'b) t -> ('a, 'b) gph
+  val run : ('a, 'b) graph -> ('k, 'a, 'b) t -> ('a, 'b) graph
 end
 
 val draw

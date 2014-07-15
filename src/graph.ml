@@ -10,13 +10,13 @@ module Node = struct
 end
 
 type ('a, 'b) t =
-  { nodes        : ('a, 'b) node Inttbl.t
-  ; mutable available_id : int 
+  { nodes                : ('a, 'b) node Inttbl.t
+  ; mutable available_id : int
   }
 
 (* For internal purposes *)
 let create () = { nodes = Inttbl.create (); available_id = 0 }
-let copy t = { nodes = Inttbl.copy t.nodes; available_id = t.available_id }
+
 let copy_nodes nodes =
   let nodes' = Inttbl.create () in
   Inttbl.iter nodes ~f:(fun ~key ~data -> 
@@ -24,15 +24,17 @@ let copy_nodes nodes =
   );
   nodes'
 
+let copy t = { nodes = copy_nodes t.nodes; available_id = t.available_id }
+
 let empty = create
 
-let add_node x t =
+let add_node t x =
   let nodes' = copy_nodes t.nodes in
   let new_node = {value = x; succs = Inttbl.create ()} in
   Inttbl.add nodes' ~key:t.available_id ~data:new_node;
   (t.available_id, { nodes = nodes'; available_id = t.available_id + 1})
 
-let add_nodes arr t =
+let add_nodes t arr =
   let nodes' = copy_nodes t.nodes in
   let len    = Array.length arr in
   let i_0    = t.available_id in
@@ -50,23 +52,23 @@ let add_nodes arr t =
   , { nodes = nodes'; available_id = i_0 + len }
   )
 
-let get v t = Option.map ~f:(fun x -> x.value) (Inttbl.find t.nodes v)
+let get t v = Option.map ~f:(fun x -> x.value) (Inttbl.find t.nodes v)
 
-let get_exn v t = (Inttbl.find_exn t.nodes v).value
+let get_exn t v = (Inttbl.find_exn t.nodes v).value
 
 (* For internal purposes *)
-let get_node v t = Inttbl.find t.nodes v
+let get_node t v = Inttbl.find t.nodes v
 
-let successors v t = Option.map ~f:(fun x -> Inttbl.to_array x.succs) (Inttbl.find t.nodes v)
+let successors t v = Option.map ~f:(fun x -> Inttbl.to_array x.succs) (Inttbl.find t.nodes v)
 
-let successors_exn v t = match Inttbl.find t.nodes v with
+let successors_exn t v = match Inttbl.find t.nodes v with
   | None   -> failwith "Graph.successors_exn: Node not in graph"
   | Some x -> Inttbl.to_array x.succs
 
 let unsafe_push (x : 'a) (arr : 'a array) = 
   ignore ((Obj.magic arr : 'a Js.js_array Js.t)##push(x))
 
-let predecessors v t =
+let predecessors t v =
   match Inttbl.find t.nodes v with
   | None -> None
   | Some _ -> 
@@ -78,7 +80,7 @@ let predecessors v t =
     );
     Some preds
 
-let predecessors_exn v t = match predecessors v t with
+let predecessors_exn t v = match predecessors t v with
   | None   -> failwith "Graph.predecessors_exn: Node not in graph"
   | Some x -> x
 
@@ -152,7 +154,7 @@ let remove_node u nodes =
     end
   | _       -> failwith "Graph.remove_node: Node not in graph"
 
-let change cs t =
+let change t cs =
   let nodes' = copy_nodes t.nodes in
   Array.iter cs ~f:(let open Change in function
     | Add_arc (u, v, e) -> add_arc u v e nodes'
@@ -161,8 +163,14 @@ let change cs t =
   );
   { nodes = nodes'; available_id = t.available_id }
 
+type ('a, 'b) graph = ('a, 'b) t
 
-type ('a, 'b) gph = ('a, 'b) t
+let add_node_mutate t x =
+  let new_node = {value = x; succs = Inttbl.create () } in
+  let key = t.available_id in
+  Inttbl.add t.nodes ~key ~data:new_node;
+  t.available_id <- t.available_id + 1;
+  key
 
 module Builder = struct
   type ('a, 'b) node = ('a, 'b) Node.t
@@ -191,20 +199,13 @@ module Builder = struct
     else if n = 0 then return ()
     else t >>= fun _ -> replicate_ignore (n - 1) t
 
-  let add_node_mutate x t =
-    let new_node = {value = x; succs = Inttbl.create () } in
-    let key = t.available_id in
-    Inttbl.add t.nodes ~key ~data:new_node;
-    t.available_id <- t.available_id + 1;
-    key
-
   let run g =
     let g' = copy g in
     let rec go = let open F in function
       | Pure x                      -> ()
       | Free (Add_arc (u, v, e, k)) -> add_arc u v e g'.nodes; go k
       | Free (Remove_arc (u, v, k)) -> remove_arc u v g'.nodes; go k
-      | Free (New_node (x, cont))   -> go (cont (add_node_mutate x g'))
+      | Free (New_node (x, cont))   -> go (cont (add_node_mutate g' x))
     in
     fun fx -> go fx; g'
 
@@ -215,7 +216,7 @@ module Builder = struct
   let remove_arc u v = Free (F.Remove_arc (u, v, Pure ()))
 end
 
-let from_adjacency_lists adjs = let open Builder in let open Monad_infix in
+let of_adjacency_lists adjs = let open Builder in let open Monad_infix in
   begin
     all (List.map ~f:(fun (x, _) -> new_node x) adjs) >>= fun nodes ->
       let nodes_arr = Array.of_list nodes in
@@ -225,6 +226,35 @@ let from_adjacency_lists adjs = let open Builder in let open Monad_infix in
         |> all)
       |> all
   end |> run (empty ())
+
+module Mutable = struct
+  type ('a, 'b) t = ('a, 'b) graph
+
+  let create             = create
+  let of_adjacency_lists = of_adjacency_lists
+  let length             = length
+  let nodes              = nodes
+  let get                = get
+  let get_exn            = get_exn
+  let successors         = successors
+  let successors_exn     = successors_exn
+  let predecessors       = predecessors
+  let predecessors_exn   = predecessors_exn
+  let map_nodes          = map_nodes
+  let map_arcs           = map_arcs
+  let fold_nodes         = fold_nodes
+  let fold_arcs          = fold_arcs
+  let iter_nodes         = iter_nodes
+  let iter_arcs          = iter_arcs
+
+  let add_node               = add_node_mutate
+  let add_nodes t xs         = Array.map ~f:(fun x -> add_node t x) xs
+  let add_arc t ~src ~dst e  = add_arc src dst e t.nodes
+  let remove_arc t ~src ~dst = remove_arc src dst t.nodes
+  let remove_node t node     = remove_node node t.nodes
+
+  let freeze = copy
+end
 
 let () = Random.self_init ()
 
@@ -291,7 +321,7 @@ end) = struct
       Arrow.first (Frp.latest ~init:(Random.float w', Random.float h')) (Frp.Stream.create' ()),
       Arrow.first (Frp.latest ~init:(0.,0.)) (Frp.Stream.create' ())
     ) in
-    let get_pos v = Frp.Behavior.peek (fst (fst (get_exn v data_g))) in
+    let get_pos v = Frp.Behavior.peek (fst (fst (get_exn data_g v))) in
 
     let spring_accels p0 vs =
       Array.fold vs ~init:(0., 0.) ~f:(fun acc (v2, _) -> 
@@ -313,8 +343,8 @@ end) = struct
         in
         let forces = [|
           charge_acc;
-          spring_accels pos1 (successors_exn v1 data_g);
-          spring_accels pos1 (predecessors_exn v1 data_g);
+          spring_accels pos1 (successors_exn data_g v1);
+          spring_accels pos1 (predecessors_exn data_g v1);
           (side_force_x h' 0. pos1, 0.);
           (side_force_x h' w' pos1, 0.);
           (0. , horiz_force_y w' 0. pos1);
@@ -341,8 +371,8 @@ end) = struct
       in
       let edges =
         fold_arcs data_g ~init:[] ~f:(fun es v1 v2 _ ->
-          let pos1 = fst (fst (get_exn v1 data_g)) in
-          let pos2 = fst (fst (get_exn v2 data_g)) in
+          let pos1 = fst (fst (get_exn data_g v1)) in
+          let pos2 = fst (fst (get_exn data_g v2)) in
           path ~stroke:(Frp.Behavior.return (Stroke.create Color.black 2))
             ~anchor:pos1
             (Frp.Behavior.map pos2 ~f:(fun p -> [|Segment.line_to p|]))
