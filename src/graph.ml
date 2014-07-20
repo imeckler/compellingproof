@@ -406,4 +406,156 @@ let draw ?(charge_constant=0.01) ?(spring_constant=0.000001) ~width ~height =
   end)
   in M.draw
 
+module Sigma = struct
+  module Node = struct
+    type ('a, 'b) t = Js.js_string Js.t
+  end
+
+  module Arc = struct
+    class type ['a, 'b] arc = object
+      method data   : 'b Js.readonly_prop
+      method source : ('a, 'b) Node.t Js.readonly_prop
+      method target : ('a, 'b) Node.t Js.readonly_prop
+    end
+
+    type ('a, 'b) t = ('a, 'b) arc Js.t
+
+    let data t   = t##data
+    let source t = t##source
+    let target t = t##target
+  end
+
+  type dummy
+  type graph
+
+  module Controller : sig
+    type t
+    val create : unit -> t
+    val get_graph : t -> graph Js.t
+  end = struct
+    type t = dummy Js.t
+    let create () : t =
+      jsnew (Js.Unsafe.variable "sigma") ()
+
+    let get_graph (t : t) = Js.Unsafe.get t (Js.string "graph")
+  end
+
+  type ('a, 'b) t =
+    { sigma       : Controller.t
+    ; dummy       : ('a * 'b) ref option
+    ; mutable uid : int
+    }
+
+  let get_uid t =
+    let id = t.uid in
+    t.uid <- t.uid + 1;
+    (Obj.magic id : Js.number Js.t)##toString()
+
+  let create () : ('a, 'b) t =
+    { sigma = Controller.create ()
+    ; uid   = 0
+    ; dummy = None
+    }
+
+  let get_graph t = Controller.get_graph t.sigma
+
+  let nodes t = Js.to_array (Js.Unsafe.meth_call (get_graph t) "nodes" [||])
+
+  let arcs t = Js.to_array (Js.Unsafe.meth_call (get_graph t) "arcs" [||])
+
+  let opt_to_arr = function
+    | None -> [||]
+    | Some x -> [|x|]
+
+  let opt_prop name conv xo = match xo with
+    | None -> [||]
+    | Some x -> [|name, Js.Unsafe.inject (conv x)|]
+
+  let add_node ?color ?pos ?size ?label t x =
+    let id = get_uid t in
+    Js.Unsafe.(meth_call (get_graph t) "addNode" [|
+      obj (
+        [|("id", inject id); ("data", inject x)|]
+        @@ opt_prop "color" (Js.string -| Color.to_css_string) color
+        @@ opt_prop "x" (Js.number_of_float -| fst) pos
+        @@ opt_prop "y" (Js.number_of_float -| snd) pos
+        @@ opt_prop "size" ident size
+        @@ opt_prop "label" Js.string label)|]);
+    id
+
+  let find_node t node =
+    Js.Optdef.to_option (
+      Js.Unsafe.(meth_call (get_graph t) "nodes" [|inject node|]))
+
+  let get t node = Option.map (find_node t node) ~f:(fun node_obj ->
+    Js.Unsafe.get node_obj (Js.string "data"))
+
+  let get_exn t node = match get t node with
+    | Some x -> x | None -> failwith "Graph.Sigma.get_exn: Node not found"
+
+  type 'a update = [`Color of Color.t | `Label of string | `Size of float | `Data of 'a]
+  let update_node t node update =
+    match find_node t node with
+    | None -> `Not_found
+    | Some node_obj ->
+      let prop_name, value = Js.Unsafe.(match update with
+        | `Color c -> "color", inject (Js.string (Color.to_css_string c))
+        | `Label s -> "label", inject (Js.string s)
+        | `Size f  -> "size", inject f
+        | `Data x  -> "data", inject x)
+      in
+      Js.Unsafe.set node_obj (Js.string prop_name) value;
+      `Ok
+  ;;
+
+  let update_node_exn t node update =
+    match update_node t node update with
+    | `Ok -> () | `Not_found -> failwith "Graph.Sigma.update_node_exn: Not found"
+
+  let add_arc ?color ?size t ~src ~dst data =
+    let id = get_uid t in
+    try Js.Unsafe.(meth_call (get_graph t) "addEdge" [|
+      obj (
+        [|("id", inject id); ("source", inject src); ("target", inject dst)|]
+        @@ opt_prop "color" (Js.string -| Color.to_css_string) color
+        @@ opt_prop "size" ident size)|]);
+      `Ok
+    with _e -> `Not_found
+  ;;
+
+  let add_arc_exn ?color ?size t ~src ~dst data =
+    match add_arc ?color ?size t ~src ~dst data with
+    | `Ok -> () | `Not_found -> failwith "Graph.Sigma.add_arc_exn: Not found"
+
+  let remove_node t node =
+    try (Js.Unsafe.(meth_call (get_graph t) "dropNode" [|inject node|]); `Ok)
+    with _e -> `Not_found
+
+  let remove_node_exn t node = match remove_node t node with
+    | `Ok -> () | `Not_found -> failwith "Graph.Sigma.remove_node_exn: Not found"
+
+  let clear t =
+    Js.Unsafe.meth_call (get_graph t) "clear" [||]
+
+  let refresh t =
+    Js.Unsafe.meth_call t.sigma "refresh" [||]
+
+  let start_force_layout t =
+    Js.Unsafe.meth_call t.sigma "startForceAtlas2" [||]
+
+  let stop_force_layout t =
+    Js.Unsafe.meth_call t.sigma "stopForceAtlas2" [||]
+
+  let display ?(mode=`Canvas) t container =
+    let mode_str = Js.string (match mode with
+      | `Canvas -> "canvas" | `WebGL -> "webgl")
+    in
+    Js.Unsafe.(meth_call t.sigma "addRenderer" [| 
+      obj [|
+        "container", inject container;
+        "type", inject mode_str
+      |]|]);
+    refresh t
+  ;;
+end
 

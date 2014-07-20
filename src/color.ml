@@ -9,6 +9,9 @@ let random () =
 let to_css_string {r; g; b; alpha} =
   Printf.sprintf "rgba(%d,%d,%d,%f)" r g b alpha
 
+let to_hex_string {r;g;b; alpha=_} =
+  Printf.sprintf "#%X%X%X" r g b
+
 let white = { r = 255; g = 255; b = 255; alpha = 1.0 }
 let black = { r = 0; g = 0; b = 0; alpha = 1.0 }
 let red   = { r = 255; g = 0; b = 0; alpha = 1.0 }

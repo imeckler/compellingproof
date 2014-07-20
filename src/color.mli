@@ -13,6 +13,7 @@ val blue  : t
 val none  : t
 
 val to_css_string : t -> string
+val to_hex_string : t -> string
 
 module Gradient : sig
   type t =

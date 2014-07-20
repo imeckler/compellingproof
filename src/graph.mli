@@ -120,6 +120,78 @@ module Mutable : sig
   val freeze : ('a, 'b) t -> ('a, 'b) graph
 end
 
+module Sigma : sig
+  module Node : sig
+    type ('a, 'b) t
+  end
+
+  module Arc : sig
+    type ('a, 'b) t
+
+    val data : ('a, 'b) t -> 'b
+    val source : ('a, 'b) t -> ('a, 'b) Node.t
+    val target : ('a, 'b) t -> ('a, 'b) Node.t
+  end
+
+  (*
+  module Arc = struct
+    type ('a, 'b) t
+
+    val data : ('a, 'b) t -> 'b
+
+    val source : ('a, 'b) t -> ('a, 'b) Node.t
+
+    val target : ('a, 'b) t -> ('a, 'b) Node.t
+  end *)
+
+  type ('a, 'b) t
+
+  val create : unit -> ('a, 'b) t
+
+  val nodes : ('a, 'b) t -> ('a, 'b) Node.t array
+
+  val arcs : ('a, 'b) t -> ('a, 'b) Arc.t array
+
+  val add_node
+    : ?color:Color.t
+    -> ?pos:(float * float)
+    -> ?size:float
+    -> ?label:string
+    -> ('a, 'b) t -> 'a -> ('a, 'b) Node.t
+
+  type 'a update = [`Color of Color.t | `Label of string | `Size of float | `Data of 'a]
+  val update_node
+    : ('a, 'b) t
+    -> ('a, 'b) Node.t
+    -> 'a update
+    -> [`Ok | `Not_found]
+
+  val update_node_exn : ('a, 'b) t -> ('a, 'b) Node.t -> 'a update -> unit
+
+  val get     : ('a, 'b) t -> ('a, 'b) Node.t -> 'a option
+  val get_exn : ('a, 'b) t -> ('a, 'b) Node.t -> 'a option
+
+  val add_arc
+    : ?color:Color.t
+    -> ?size:float
+    -> ('a, 'b) t -> src:('a, 'b) Node.t -> dst:('a, 'b) Node.t -> 'b -> [`Ok | `Not_found]
+
+  val add_arc_exn
+    : ?color:Color.t
+    -> ?size:float
+    -> ('a, 'b) t -> src:('a, 'b) Node.t -> dst:('a, 'b) Node.t -> 'b -> unit
+
+  val remove_node : ('a, 'b) t -> ('a, 'b) Node.t -> [`Ok | `Not_found]
+  val remove_node_exn : ('a, 'b) t -> ('a, 'b) Node.t -> unit
+
+  val clear : ('a, 'b) t -> unit
+
+  val display : ?mode:[`Canvas | `WebGL] -> ('a, 'b) t -> Dom_html.element Js.t -> unit
+  val refresh : ('a, 'b) t -> unit
+  val start_force_layout : ('a, 'b) t -> unit
+  val stop_force_layout  : ('a, 'b) t -> unit
+end
+
 (* Experimental interface *)
 
 module Builder : sig
