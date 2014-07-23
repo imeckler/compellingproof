@@ -184,6 +184,8 @@ module Sigma : sig
   val remove_node : ('a, 'b) t -> ('a, 'b) Node.t -> [`Ok | `Not_found]
   val remove_node_exn : ('a, 'b) t -> ('a, 'b) Node.t -> unit
 
+  val iter_nodes : ('a, 'b) t -> f:(('a, 'b) Node.t -> 'a -> unit) -> unit
+
   val clear : ('a, 'b) t -> unit
 
   val display : ?mode:[`Canvas | `WebGL] -> ('a, 'b) t -> Dom_html.element Js.t -> unit

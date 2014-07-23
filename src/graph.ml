@@ -459,7 +459,20 @@ module Sigma = struct
 
   let get_graph t = Controller.get_graph t.sigma
 
-  let nodes t = Js.to_array (Js.Unsafe.meth_call (get_graph t) "nodes" [||])
+  type ('a, 'b) node_obj
+  let node_id (node_obj : ('a, 'b) node_obj) : ('a, 'b) Node.t =
+    Js.Unsafe.get node_obj (Js.string "id")
+
+  let node_data (node_obj : ('a, 'b) node_obj) : 'a =
+    Js.Unsafe.get node_obj (Js.string "data")
+
+  let node_objs (t : ('a, 'b) t) : ('a, 'b) node_obj array =
+    Js.to_array (Js.Unsafe.meth_call (get_graph t) "nodes" [||])
+
+  let nodes (t : ('a, 'b) t) : ('a, 'b) Node.t array = Array.map ~f:node_id (node_objs t)
+
+  let iter_nodes t ~f = Array.iter (node_objs t) ~f:(fun node ->
+    f (node_id node) (node_data node))
 
   let arcs t = Js.to_array (Js.Unsafe.meth_call (get_graph t) "arcs" [||])
 
