@@ -10,3 +10,5 @@ val norm : t -> float
 
 val normed : t -> t
 
+val (+) : t -> t -> t
+val (-) : t -> t -> t

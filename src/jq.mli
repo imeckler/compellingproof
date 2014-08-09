@@ -64,6 +64,11 @@ val children : t -> Dom.t array
 
 val append : t -> t -> unit
 
+(** [insert_after t1 t2] inserts t2 into the dom after t1 *)
+val insert_after  : t -> t -> unit
+(** [insert_after t1 t2] inserts t2 into the dom before t1 *)
+val insert_before : t -> t -> unit
+
 val empty : t -> unit
 
 val width : t -> int

@@ -10,10 +10,13 @@ val pi : float
 
 val cos : t -> float
 val sin : t -> float
+val tan : t -> float
+val cot : t -> float
 
 val acos : float -> t
 val asin : float -> t
 val atan : float -> t
+val atan2 : float -> float -> t
 
 val (+) : t -> t -> t
 val (-) : t -> t -> t

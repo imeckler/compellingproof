@@ -68,7 +68,7 @@ module Property = struct
       { cap         : Linecap.t
       ; join        : Linejoin.t
 (*       ; mask        : (float * float) option *)
-      ; width       : int
+      ; width       : float
       ; color       : Color.t
       }
 
@@ -97,7 +97,7 @@ module Property = struct
     | Stroke {Stroke.cap; join; width; color} ->
       String.concat_array ~sep:";"
       [| "stroke:"          ^ Color.to_css_string color
-       ; "stroke-width:"    ^ string_of_int width
+       ; "stroke-width:"    ^ string_of_float width
        ; "stroke-linecap:"  ^ Stroke.Linecap.render cap
        ; "stroke-linejoin:" ^ Stroke.Linejoin.render join
       |]

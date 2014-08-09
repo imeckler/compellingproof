@@ -36,7 +36,7 @@ module Stroke : sig
     : ?cap:Linecap.t
     -> ?join:Linejoin.t
     -> Color.t
-    -> int
+    -> float
     -> t
 end
 
@@ -86,6 +86,7 @@ val rect
    [0. <= a <= b <= 1.]. It is used to specify which portion
    of the path should be visible.
 *)
+(* TODO: Get rid of anchor *)
 val path
   : (?mask:(float * float) Frp.Behavior.t
   -> anchor:(float Point.t Frp.Behavior.t)
@@ -99,6 +100,7 @@ val path_string
   -> t)
   with_shape_args
 
+(* TODO: Add functions for commonly used polygons. E.g., equilateral triangle *)
 val polygon
   :(float Point.t array Frp.Behavior.t (* TODO: Think about this *)
   -> t)

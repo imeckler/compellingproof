@@ -173,18 +173,22 @@ module Sigma : sig
 
   val add_arc
     : ?color:Color.t
+    -> ?shape:([`Curved | `Straight] * [`Arrow | `Def])
     -> ?size:float
     -> ('a, 'b) t -> src:('a, 'b) Node.t -> dst:('a, 'b) Node.t -> 'b -> [`Ok | `Not_found]
 
   val add_arc_exn
     : ?color:Color.t
+    -> ?shape:([`Curved | `Straight] * [`Arrow | `Def])
     -> ?size:float
     -> ('a, 'b) t -> src:('a, 'b) Node.t -> dst:('a, 'b) Node.t -> 'b -> unit
 
-  val remove_node : ('a, 'b) t -> ('a, 'b) Node.t -> [`Ok | `Not_found]
+  val remove_node     : ('a, 'b) t -> ('a, 'b) Node.t -> [`Ok | `Not_found]
   val remove_node_exn : ('a, 'b) t -> ('a, 'b) Node.t -> unit
 
   val iter_nodes : ('a, 'b) t -> f:(('a, 'b) Node.t -> 'a -> unit) -> unit
+
+  val weakly_connected : ('a, 'b) t -> bool
 
   val clear : ('a, 'b) t -> unit
 
@@ -192,6 +196,7 @@ module Sigma : sig
   val refresh : ('a, 'b) t -> unit
   val start_force_layout : ('a, 'b) t -> unit
   val stop_force_layout  : ('a, 'b) t -> unit
+  val make_draggable : ('a, 'b) t -> unit
 end
 
 (* Experimental interface *)

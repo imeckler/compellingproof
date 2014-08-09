@@ -28,7 +28,13 @@ let find_descendants t selector =
     (to_ocaml_array (Js.Unsafe.(meth_call t "find" [|inject (Js.string selector)|])))
 
 let append parent child =
-  Js.Unsafe.meth_call parent "append" [| Js.Unsafe.inject child |]
+  Js.Unsafe.(meth_call parent "append" [|inject child|])
+
+let insert_after t1 t2 =
+  Js.Unsafe.(meth_call t1 "after" [|inject t2|])
+
+let insert_before t1 t2 =
+  Js.Unsafe.(meth_call t1 "before" [|inject t2|])
 
 let empty t =
   Js.Unsafe.meth_call t "empty" [||]

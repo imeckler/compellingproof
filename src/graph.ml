@@ -373,7 +373,7 @@ end) = struct
         fold_arcs data_g ~init:[] ~f:(fun es v1 v2 _ ->
           let pos1 = fst (fst (get_exn data_g v1)) in
           let pos2 = fst (fst (get_exn data_g v2)) in
-          path ~stroke:(Frp.Behavior.return (Stroke.create Color.black 2))
+          path ~stroke:(Frp.Behavior.return (Stroke.create Color.black 2.))
             ~anchor:pos1
             (Frp.Behavior.map pos2 ~f:(fun p -> [|Segment.line_to p|]))
           :: edge_triangle pos1 pos2
@@ -440,6 +440,16 @@ module Sigma = struct
     let get_graph (t : t) = Js.Unsafe.get t (Js.string "graph")
   end
 
+  let () =
+    let add_graph_method name f =
+      (Js.Unsafe.variable "sigma.classes.graph")##addMethod(Js.string name, Js.wrap_meth_callback f)
+    in
+    add_graph_method "getInNeighborsIndex" (fun this () -> this##inNeighborsIndex);
+    add_graph_method "getOutNeighborsIndex" (fun this () -> this##outNeighborsIndex);
+    add_graph_method "getAllNeighborsIndex" (fun this () -> this##allNeighborsIndex);
+    add_graph_method "getNodesCount" (fun this () -> (this##nodesArray)##length)
+  ;;
+
   type ('a, 'b) t =
     { sigma       : Controller.t
     ; dummy       : ('a * 'b) ref option
@@ -459,6 +469,12 @@ module Sigma = struct
 
   let get_graph t = Controller.get_graph t.sigma
 
+(*   let nodes_count t : int = Js.Unsafe.meth_call (get_graph t) "getNodesCount" [||] *)
+
+  let weakly_connected t =
+    Js.to_bool
+      (Js.Unsafe.(fun_call (variable "weaklyConnected") [|inject (get_graph t)|]))
+
   type ('a, 'b) node_obj
   let node_id (node_obj : ('a, 'b) node_obj) : ('a, 'b) Node.t =
     Js.Unsafe.get node_obj (Js.string "id")
@@ -476,6 +492,38 @@ module Sigma = struct
 
   let arcs t = Js.to_array (Js.Unsafe.meth_call (get_graph t) "arcs" [||])
 
+  let find_node t node =
+    Js.Optdef.to_option (
+      Js.Unsafe.(meth_call (get_graph t) "nodes" [|inject node|]))
+
+  let node_exists t node =
+    Option.is_some (find_node t node)
+
+  let get t node = Option.map (find_node t node) ~f:(fun node_obj ->
+    Js.Unsafe.get node_obj (Js.string "data"))
+
+  let get_exn t node = match get t node with
+    | Some x -> x | None -> failwith "Graph.Sigma.get_exn: Node not found"
+
+(*
+  let get_arc : ('a, 'b) t -> ('a, 'b) Arc.t =
+    let first_prop obj : (Js.Unsafe.any -> Js.js_string Js.t) Js.callback =
+      Js.Unsafe.eval_string "(function(x){for(var p in x){return p}})"
+    in
+    let extract_arc arcs_obj = Js.Unsafe.(get arcs_obj (fun_call first_prop [|inject arcs_obj|])) in
+    let null_or_undefined x = Js.Optdef.test (Obj.magic x) || Js.Opt.test (Obj.magic x) in
+    fun t ~src ~dst ->
+      if not (node_exists t src) || not (node_exists t dst)
+      then `Not_found
+      else let open Js.Unsafe in
+        let idx = meth_call (get_graph t) "getOutNeighborsIndex" [||] in
+        let arcs_obj = get (get idx src) dst in
+        `Ok (
+          if null_or_undefined arcs_obj
+          then None
+          else Some (extract_arc arcs_obj))
+
+*)
   let opt_to_arr = function
     | None -> [||]
     | Some x -> [|x|]
@@ -496,16 +544,6 @@ module Sigma = struct
         @@ opt_prop "label" Js.string label)|]);
     id
 
-  let find_node t node =
-    Js.Optdef.to_option (
-      Js.Unsafe.(meth_call (get_graph t) "nodes" [|inject node|]))
-
-  let get t node = Option.map (find_node t node) ~f:(fun node_obj ->
-    Js.Unsafe.get node_obj (Js.string "data"))
-
-  let get_exn t node = match get t node with
-    | Some x -> x | None -> failwith "Graph.Sigma.get_exn: Node not found"
-
   type 'a update = [`Color of Color.t | `Label of string | `Size of float | `Data of 'a]
   let update_node t node update =
     match find_node t node with
@@ -525,19 +563,26 @@ module Sigma = struct
     match update_node t node update with
     | `Ok -> () | `Not_found -> failwith "Graph.Sigma.update_node_exn: Not found"
 
-  let add_arc ?color ?size t ~src ~dst data =
+  let edge_shape_string = function
+    | (`Curved, `Arrow) -> "curvedArrow"
+    | (`Curved, `Def)  -> "curve"
+    | (`Straight, `Arrow) -> "arrow"
+    | (`Straight, `Def) -> "undirected"
+
+  let add_arc ?color ?shape ?size t ~src ~dst data =
     let id = get_uid t in
     try Js.Unsafe.(meth_call (get_graph t) "addEdge" [|
       obj (
         [|("id", inject id); ("source", inject src); ("target", inject dst)|]
         @@ opt_prop "color" (Js.string -| Color.to_css_string) color
+        @@ opt_prop "type" (Js.string -| edge_shape_string) shape
         @@ opt_prop "size" ident size)|]);
       `Ok
     with _e -> `Not_found
   ;;
 
-  let add_arc_exn ?color ?size t ~src ~dst data =
-    match add_arc ?color ?size t ~src ~dst data with
+  let add_arc_exn ?color ?shape ?size t ~src ~dst data =
+    match add_arc ?color ?shape ?size t ~src ~dst data with
     | `Ok -> () | `Not_found -> failwith "Graph.Sigma.add_arc_exn: Not found"
 
   let remove_node t node =
@@ -570,5 +615,9 @@ module Sigma = struct
       |]|]);
     refresh t
   ;;
+
+  let make_draggable t =
+    Js.Unsafe.(fun_call (variable "sigma.plugins.dragNodes")
+      [|inject t.sigma; inject (get (get t.sigma (Js.string "renderers")) (Js.string "0"))|])
 end
 

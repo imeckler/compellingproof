@@ -25,11 +25,17 @@ let cos x = cos (to_radians x)
 
 let sin x = sin (to_radians x)
 
+let tan x = tan (to_radians x)
+
+let cot x = 1. /. tan x
+
 let acos x = of_radians (acos x)
 
 let asin x = of_radians (asin x)
 
 let atan x = of_radians (atan x)
+
+let atan2 y x = of_radians (atan2 y x)
 
 let (+) = (+.)
 let (-) = (-.)
