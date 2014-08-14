@@ -1,35 +1,5 @@
 type t
 
-module Event : sig
-  module Mouse : sig
-    module Button : sig
-      type t = [ `Left | `Middle | `Right ]
-    end
-
-    module Click : sig
-      type t =
-        { pos    : int * int
-        ; button : Button.t
-        }
-    end
-
-    module Drag : sig
-      type t =
-        { change : int * int
-        ; button : Button.t
-        }
-    end
-  end
-
-  module Key : sig
-    type t
-
-    val of_code : int -> t
-
-    val to_code : t -> int
-  end
-end
-
 module Dom : sig
   type t = Dom_html.element Js.t
 
@@ -47,6 +17,8 @@ module Dom : sig
 
   val svg_node : string -> (string * string) array -> t
 end
+
+val body : t
 
 val to_dom_node : t -> Dom.t option
 
@@ -84,7 +56,13 @@ val sink_attr : t -> name:string -> value:string Frp.Behavior.t -> Frp.Subscript
 
 val css : t -> (string * string) array -> unit
 
-val on : t -> string -> (Dom_html.event Js.t -> unit) -> unit
+module Event = struct
+  type removal_token
+
+  val on : t -> string -> (Dom_html.event Js.t -> unit) -> removal_token
+
+  val off : removal_token -> unit
+end
 
 val keys : Event.Key.t array Frp.Behavior.t
 

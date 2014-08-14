@@ -53,20 +53,24 @@ let css t ps =
   let ps' = obj (Array.map ps ~f:(fun (p, x) -> p, inject x)) in
   meth_call t "css" [| inject ps' |]
 
-let on t event_name (f : Dom_html.event Js.t -> unit) : unit =
-  Js.Unsafe.(meth_call t "on" [| inject (Js.string event_name); inject (Js.wrap_callback f) |])
+module Event = struct
+  type removal_token = Js.js_string Js.t * (Dom_html.event Js.t -> unit) Js.callback
 
-let on_wrapped t event_name handler : unit = let open Js.Unsafe in
-  meth_call t "on" [|inject (Js.string event_name); inject handler|]
+  let on t event_name f : removal_token =
+    let callback = Js.wrap_callback f in
+    let js_event_name = Js.string event_name in
+    Js.Unsafe.(meth_call t "on" [|inject js_event_name; inject callback|]);
+    (js_event_name, callback)
 
-let off_wrapped t event_name handler : unit = let open Js.Unsafe in
-  meth_call t "off" [|inject (Js.string event_name); inject handler|]
+  let off t (js_event_name, callback) = let open Js.Unsafe in
+  meth_call t "off" [|inject js_event_name; inject callback|]
+end
 
 let set_attr t ~name ~value : unit =
   Js.Unsafe.(meth_call t "attr" [| inject (Js.string name); inject (Js.string value) |])
 
 let stop_on_removal t sub =
-  on t "removal" (fun _ -> Frp.Subscription.cancel sub);
+  ignore (Event.on t "removal" (fun _ -> Frp.Subscription.cancel sub));
   sub
 
 let sink_attr t ~name ~value =
@@ -124,44 +128,7 @@ module Dom = struct
   ;;
 end
 
-module Event = struct
-  module Mouse = struct
-    module Button = struct
-      type t = [ `Left | `Middle | `Right ]
-
-      let from_code = function
-        | 1 -> `Left
-        | 2 -> `Middle
-        | 3 -> `Right
-        | x -> failwith ("Not a valid mouse code: " ^ string_of_int x)
-    end
-
-    module Click = struct
-      type t =
-        { pos    : int * int
-        ; button : Button.t
-        }
-    end
-
-    module Drag = struct
-      type t =
-        { change : int * int
-        ; button : Button.t
-        }
-    end
-
-  end
-
-  module Key = struct
-    type t = int
-
-    let of_code t = t
-
-    let to_code t = t
-  end
-end
-
-let body = unsafe_jq "body"
+let body : t = unsafe_jq "body"
 
 (* TODO: Oh god what do I name this *)
 
@@ -194,6 +161,7 @@ let keys =
     end;
     Inttbl.keys pressed)
 
+(*
 let arrows = 
   let bool_to_int = function
     | true  -> 1
@@ -202,31 +170,7 @@ let arrows =
   Frp.Behavior.map keys ~f:(fun ks -> let open Event.Key in
   ( bool_to_int (Array.mem ks (of_code 39)) - bool_to_int (Array.mem ks (of_code 37))
   , bool_to_int (Array.mem ks (of_code 38)) - bool_to_int (Array.mem ks (of_code 40))))
-
-let mouse_pos =
-  Frp.Stream.create () ~start:(fun trigger ->
-    let handler e =
-      trigger Js.Unsafe.(get e (Js.string "pageX"), get e (Js.string "pageY"))
-    in
-    setup_event_handlers body [|"mousemove", handler|])
-
-let relative_mouse_pos t =
-  Frp.Stream.map mouse_pos ~f:(fun (x, y) ->
-    let (left, top) = offset t in (x - left, y - top))
-
-let mouse_movements = 
-  Frp.Stream.delta mouse_pos ~f:(fun (x0, y0) (x1, y1) -> (x1 - x0, y1 - y0))
-
-let clicks t =
-  Frp.Stream.create () ~start:(fun trigger ->
-    let handler e =
-      let pos = Js.Unsafe.(get e (Js.string "offsetX"), get e (Js.string "offsetY")) in
-      let button = Event.Mouse.Button.from_code Js.Unsafe.(get e (Js.string "which")) in
-      trigger { Event.Mouse.Click.pos ; button }
-    in
-    setup_event_handlers t [|"click", handler|])
-
-let clicks_with button t = Frp.Stream.filter (clicks t) ~f:(fun b -> b = button)
+*)
 
 let dragged t =
   Frp.Stream.create ~start:(fun trigger ->
