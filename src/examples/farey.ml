@@ -9,7 +9,8 @@ let width', height' = float_of_int width, float_of_int height
 let farey_circle x = let open Form in
   let q  = float_of_int (Ratio.denominator x) in
   let r  = scale_factor /. (2. *. q *. q) in
-  move (scale_factor *. Ratio.to_float x, height' -. r) (outlined Line_style.default (Shape.circle r))
+  move (scale_factor *. Ratio.to_float x, height' -. r) 
+    (outlined Line_style.default (Shape.circle r))
 
 module Array_version = struct
   let circles_in_range denom (lo, hi) =
@@ -46,15 +47,17 @@ end
 open Iterator_version
 
 let () = begin
-  println "hola";
   let div = Dom_html.document##getElementById(Js.string "content")
     |> Js.Opt.to_option |> Option.value_exn
   in
   let t0    = Time.now () in
   let scale_pan = 
-    Jq.relative_mouse_pos (Jq.wrap div)
-    |> Frp.Stream.map ~f:(fun (x, y) ->
-        let scale =
+
+(*     Jq.relative_mouse_pos (Jq.wrap div) *)
+    Input.Mouse.position
+    |> Frp.Stream.map ~f:(fun p ->
+        let (x, y) = Input.Mouse.Pos.relative p (Jq.wrap div) in
+        let scale  =
           let d = height' -. if y = 0 then 0.000001 else float_of_int y in 
           if d < 0. then 5. else min 5. (height' /. d)
         in

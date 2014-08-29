@@ -56,26 +56,10 @@ val sink_attr : t -> name:string -> value:string Frp.Behavior.t -> Frp.Subscript
 
 val css : t -> (string * string) array -> unit
 
-module Event = struct
+module Event : sig
   type removal_token
 
   val on : t -> string -> (Dom_html.event Js.t -> unit) -> removal_token
 
-  val off : removal_token -> unit
+  val off : t -> removal_token -> unit
 end
-
-val keys : Event.Key.t array Frp.Behavior.t
-
-(* A vector corresponding to which arrow keys are being pressed down. *)
-val arrows : (int * int) Frp.Behavior.t
-
-val mouse_pos : (int * int) Frp.Stream.t
-
-(* Mouse position relative to the upper left of the given element *)
-val relative_mouse_pos : t -> (int * int) Frp.Stream.t
-
-val mouse_movements : (int * int) Frp.Stream.t
-
-val clicks : t -> Event.Mouse.Click.t Frp.Stream.t
-
-val drags : t -> (int * int) Frp.Stream.t (* TODO: Fix to have button as well *)

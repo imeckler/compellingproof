@@ -24,7 +24,7 @@ module Control = struct
     let play_incrs sliding button rate = let open Frp in
       (* rate' is in percentage per milliseconds *)
       let rate' = rate /. 1000. in
-      let playing = scan (Jq.clicks button) ~init:false ~f:(fun p _ -> not p) in
+      let playing = scan (Input.Mouse.clicks_on button) ~init:false ~f:(fun p _ -> not p) in
       Jq.sink_attr button ~name:"class" ~value:(Behavior.map playing ~f:(fun p -> 
         if p then "btn cp-slider-button-playing" else "btn cp-slider-button-paused"
       )) |> ignore;
@@ -111,25 +111,23 @@ module Control = struct
     end;
     let open Frp.Stream in
     merge
-      (map ~f:(fun _ -> 1)  (Jq.clicks incr_button)) 
-      (map ~f:(fun _ -> -1) (Jq.clicks decr_button))
+      (map ~f:(fun _ -> 1)  (Input.Mouse.clicks_on incr_button)) 
+      (map ~f:(fun _ -> -1) (Input.Mouse.clicks_on decr_button))
     |> Frp.scan ~f:(fun n i -> max bot (min top (n + i))) ~init:bot
     |> Frp.Behavior.skip_duplicates
   ;;
 
 
-  let clicks _ canvas = Jq.clicks canvas
-  let drags _ canvas  = Jq.drags canvas
+  let clicks _ canvas = Input.Mouse.clicks_on canvas
+  let drags_with ~button _ canvas = Input.Mouse.drags_with ~button canvas
 
-  let drag_point init : (int * int) Frp.Behavior.t t = fun _ canvas ->
-    println "Widget.drag_point";
-    let open Jq.Event.Mouse.Drag in
-    Frp.scan (Jq.drags canvas) ~init
+  let drag_point_with ~init ~button : (int * int) Frp.Behavior.t t = fun _ canvas ->
+    Frp.scan (Input.Mouse.drags_with ~button:`Left canvas) ~init
       ~f:(fun (x, y) (dx, dy) -> (x + dx,  y + dy))
 
   let pi = acos (-1.)
 
-  let drag_angle (cx, cy) =
+  let drag_angle_with (cx, cy) ~button  =
     let cxf, cyf = float_of_int cx, float_of_int cy in
     let angle_of_pos =
       fun (x, y) ->
@@ -137,7 +135,7 @@ module Control = struct
         if x < cx then pi -. a else a
     in
     fun container canvas ->
-      Frp.Behavior.map (drag_point (cx + 100, cy) container canvas)
+      Frp.Behavior.map (drag_point_with ~button ~init:(cx + 100, cy) container canvas)
         ~f:angle_of_pos
 
 end

@@ -50,7 +50,7 @@ let div =
 
 let input =
   let delta = Frp.Stream.(map ~f:(fun t -> Time.Span.to_ms t /. 20.) (deltas (1000. /. 30.))) in
-  Frp.project_with Jq.arrows delta ~f:(fun x y -> (y, x))
+  Frp.project_with Input.Key.arrows delta ~f:(fun x y -> (y, x))
 
 let init_toad = 
   {x=0.;y=0.;vx=0.;vy=0.;dir=Right}
@@ -65,7 +65,7 @@ let action_controller =
   |> Frp.Behavior.skip_duplicates
 
 let () = Frp.Stream.iter (Frp.Behavior.changes action_controller) ~f:(fun _ ->
-  println "eyo") |> ignore
+  print_endline "eyo") |> ignore
 
 let actions = 
   action_controller
@@ -75,7 +75,7 @@ let actions =
     | `Walk  -> walk_anim)
   |> Frp.Behavior.join
 
-let trace_b b to_str = Frp.Stream.iter (Frp.Behavior.changes b) ~f:(fun x -> println (to_str x))
+let trace_b b to_str = Frp.Stream.iter (Frp.Behavior.changes b) ~f:(fun x -> print_endline (to_str x))
   |> ignore
 
 let poses = Frp.Behavior.zip_with toad actions ~f:(fun t a -> (a, t.dir))

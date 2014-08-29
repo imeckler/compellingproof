@@ -37,10 +37,7 @@ module Mouse : sig
   end
 
   module Drag : sig
-    type t =
-      { change  : int * int
-      ; buttons : Button_state.t
-      }
+    type t = int * int
   end
 
   val buttons : Button_state.t Frp.Behavior.t
@@ -48,8 +45,7 @@ module Mouse : sig
   val events : Event.t Frp.Stream.t
   val events_on : Jq.t -> Event.t Frp.Stream.t
 
-  val drags : Drag.t Frp.Stream.t
-  val drags_on : t -> Drag.t Frp.Stream.t
+  val drags_with : Jq.t -> button:Button.t -> Drag.t Frp.Stream.t
 
   val clicks : Click.t Frp.Stream.t
 
@@ -66,5 +62,10 @@ module Key : sig
   val of_code : int -> t
 
   val to_code : t -> int
+
+  val keys : t array Frp.Behavior.t
+
+  (* A vector corresponding to which arrow keys are being pressed down. *)
+  val arrows : (int * int) Frp.Behavior.t
 end
 

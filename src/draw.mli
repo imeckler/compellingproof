@@ -57,9 +57,9 @@ module Name : sig
 
   val create : unit -> t
 
-  val clicks : t -> Jq.Event.Mouse.Click.t Frp.Stream.t
+  val clicks : t -> Input.Mouse.Click.t Frp.Stream.t
 
-  val drags  : t -> (int * int) Frp.Stream.t
+  val drags_with  : t -> button:Input.Mouse.Button.t -> Input.Mouse.Drag.t Frp.Stream.t
 end
 
 type t

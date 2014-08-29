@@ -1,11 +1,11 @@
 module Control : sig
   type 'a t
 
-  val clicks : Jq.Event.Mouse.Click.t Frp.Stream.t t
+  val clicks : Input.Mouse.Click.t Frp.Stream.t t
 
-  val drags : (int * int) Frp.Stream.t t
+  val drags_with : button:Input.Mouse.Button.t -> (int * int) Frp.Stream.t t
 
-  val drag_point : (int * int) -> (int * int) Frp.Behavior.t t
+  val drag_point_with : init:(int * int) -> button:Input.Mouse.Button.t -> (int * int) Frp.Behavior.t t
 
   val continuous_slider : string -> float Frp.Behavior.t t
 

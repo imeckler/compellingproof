@@ -168,9 +168,9 @@ module Name = struct
     extend_on_render t sink_events;
     s
 
-  let clicks t = jq_stream Jq.clicks t
+  let clicks t = jq_stream Input.Mouse.clicks_on t
 
-  let drags t = jq_stream Jq.drags t
+  let drags_with t ~button = jq_stream (Input.Mouse.drags_with ~button) t
 
   let init e t = t.on_render (Jq.wrap e)
 end

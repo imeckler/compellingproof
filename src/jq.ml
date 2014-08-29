@@ -63,7 +63,7 @@ module Event = struct
     (js_event_name, callback)
 
   let off t (js_event_name, callback) = let open Js.Unsafe in
-  meth_call t "off" [|inject js_event_name; inject callback|]
+    meth_call t "off" [|inject js_event_name; inject callback|]
 end
 
 let set_attr t ~name ~value : unit =
@@ -129,62 +129,6 @@ module Dom = struct
 end
 
 let body : t = unsafe_jq "body"
-
-(* TODO: Oh god what do I name this *)
-
-let setup_event_handlers t hs =
-  let hs' = Array.map hs ~f:(fun (event_name, handler) ->
-    (event_name, Js.wrap_callback handler))
-  in
-  Array.iter hs' ~f:(fun (event_name, wrapped_handler) ->
-    on_wrapped t event_name wrapped_handler);
-  fun () -> Array.iter hs' ~f:(fun (event_name, wrapped_handler) ->
-    off_wrapped t event_name wrapped_handler)
-
-let key_stream =
-  Frp.Stream.create ~start:(fun trigger ->
-    let which e      = Js.Unsafe.(get e (Js.string "which")) in
-    setup_event_handlers body [|
-      "keydown", (fun e -> e##preventDefault(); trigger (`Down (which e)));
-      "keyup"  , (fun e -> e##preventDefault(); trigger (`Up (which e)));
-    |])
-  ()
-
-let () = set_global "key_stream" key_stream
-
-let keys =
-  let pressed = Inttbl.create () in
-  Frp.scan ~init:[||] key_stream ~f:(fun _ k -> 
-    begin match k with
-      | `Down n -> Inttbl.add pressed ~key:n ~data:()
-      | `Up n -> Inttbl.remove pressed n
-    end;
-    Inttbl.keys pressed)
-
-(*
-let arrows = 
-  let bool_to_int = function
-    | true  -> 1
-    | false -> 0
-  in
-  Frp.Behavior.map keys ~f:(fun ks -> let open Event.Key in
-  ( bool_to_int (Array.mem ks (of_code 39)) - bool_to_int (Array.mem ks (of_code 37))
-  , bool_to_int (Array.mem ks (of_code 38)) - bool_to_int (Array.mem ks (of_code 40))))
-*)
-
-let dragged t =
-  Frp.Stream.create ~start:(fun trigger ->
-    let stop_down_handler =
-      setup_event_handlers t [|"mousedown", fun _ -> trigger true|]
-    in
-    let stop_up_handler =
-      setup_event_handlers body [|"mouseup", fun _ -> trigger false|]
-    in
-    fun () -> stop_down_handler (); stop_up_handler ()) ()
-  |> Frp.latest ~init:false
-
-let drags t =
-  Frp.when_ (dragged t) mouse_movements
 
 (* let drags_with button t = Frp.Stream.filter (drags t) ~f:(fun b -> b = button) *)
 
