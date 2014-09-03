@@ -12,7 +12,7 @@ Library compelling_proof
   BuildDepends:   js_of_ocaml, js_of_ocaml.syntax, frp, corejs
   BuildTools:     camlp4o
   CompiledObject: byte
-  Modules:        Text_style, Text, Point, Matrix, Affine, Angle, Color, Draw, Jq, Input, Animate, Widget, Graph, Vector, Oak, Image
+  Modules:        Text_style, Audio, Text, Point, Matrix, Affine, Angle, Color, Draw, Jq, Input, Animate, Widget, Graph, Vector, Oak, Image
   ByteOpt:        -syntax camlp4o -package js_of_ocaml -package js_of_ocaml.syntax
   XMETARequires:  js_of_ocaml,js_of_ocaml.syntax,frp,corejs
 

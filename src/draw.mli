@@ -9,7 +9,7 @@ module Transform : sig
 
   val translate : float * float -> t
   val scale : ?about:float Point.t -> float -> float -> t
-  val rotate : ?about:float Point.t -> Angle.t -> t
+  val rotate : about:float Point.t -> Angle.t -> t
   val skew_x : float -> t
   val skew_y : float -> t
 end
@@ -135,6 +135,8 @@ val empty : t
 val svg : Jq.Dom.t -> t
 
 val transform : t -> Transform.t array Frp.Behavior.t -> t
+
+val rotate : about:(float Point.t Frp.Behavior.t) -> t -> Angle.t Frp.Behavior.t -> t
 
 val translate : t -> (float * float) Frp.Behavior.t -> t
 

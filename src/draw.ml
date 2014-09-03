@@ -27,7 +27,7 @@ module Transform = struct
             compose {identity with matrix = (sx, 0., 0., sy)} (
               ({identity with translation = Vector.scale (-1.) point}))))
 
-  let rotate ?(about=(0., 0.)) angle = Rotate (angle, about)
+  let rotate ~about angle = Rotate (angle, about)
   let skew_x c = Skew_x c
   let skew_y c = Skew_y c
 
@@ -262,7 +262,10 @@ let svg e = Svg e
 let transform t trans = Transform (t, trans)
 
 let translate t move =
-  Transform (t, Frp.Behavior.map move~f:(fun (x,y) -> [|Transform.Translate (x,y)|]))
+  transform t (Frp.Behavior.map move~f:(fun (x,y) -> [|Transform.Translate (x,y)|]))
+
+let rotate ~about t angle =
+  transform t (Frp.Behavior.zip_with about angle ~f:(fun pt a -> [|Transform.rotate ~about:pt a|]))
 
 let image ~width ~height url = Image (url, width, height)
 
